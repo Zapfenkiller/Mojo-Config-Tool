@@ -24,9 +24,9 @@
 ATTENTION:
   Any license expressly does **not** include the VID/PID used.
   This has been donated to me, René Trapp, by Microchip Technology Inc.
-  for sole use with this project. Your  modifications either stay fully
+  for sole use within my experiments. Your modifications either stay fully
   unpublished on your lab bench, or you get your own VID/PID
-  combination before publishing it.
+  combination before publishing / selling your contraption.
 */
 
 
@@ -259,7 +259,8 @@ const USB_Descriptor_String_t PROGMEM LanguageString = USB_STRING_DESCRIPTOR_ARR
  */
 
 
-const USB_Descriptor_String_t PROGMEM ManufacturerString = USB_STRING_DESCRIPTOR(L"René Trapp");
+const USB_Descriptor_String_t PROGMEM ManufacturerString = USB_STRING_DESCRIPTOR(MANUFACTURER_DESCR_STRING);
+// ./Config/AppConfig.h
 /**<
  * \~ Manufacturer Descriptor string.
  *
@@ -278,7 +279,8 @@ const USB_Descriptor_String_t PROGMEM ManufacturerString = USB_STRING_DESCRIPTOR
  */
 
 
-const USB_Descriptor_String_t PROGMEM ProductString = USB_STRING_DESCRIPTOR(L"Arduino Leonardo as Spartan-II Config Tool");
+const USB_Descriptor_String_t PROGMEM ProductString = USB_STRING_DESCRIPTOR(PRODUCT_DESCR_STRING);
+// ./Config/AppConfig.h
 /**<
  * \~ Product descriptor string.
  *
@@ -298,6 +300,7 @@ const USB_Descriptor_String_t PROGMEM ProductString = USB_STRING_DESCRIPTOR(L"Ar
 
 
 const USB_Descriptor_String_t PROGMEM SerialString = USB_STRING_DESCRIPTOR(DEVICE_SERIAL_NUMBER);
+// ./Config/AppConfig.h
 /**<
  * \~ Serial number descriptor string.
  *

@@ -53,12 +53,12 @@
 
    // Port connections forming Xilinx serial configuration interface:
 
-   #define  FPGA_DATA_PORT    PORTB /**< \~English Port register of FPGA serial data \~German Portregister für seriellen FPGA-Dateneingang */
-   #define  FPGA_DATA_RET     PINB  /**< \~English Port register of FPGA DIN readback \~German Portregister für FPGA-DIN Rücklesung */
-   #define  FPGA_DATA_DIR     DDRB  /**< \~English Port direction of FPGA serial data \~German Richtungsregister für seriellen FPGA-Dateneingang */
+   #define  FPGA_DATA_PORT    PORTB /**< \~English Port register of FPGA data \~German Portregister für FPGA-Dateneingang */
+//   #define  FPGA_DATA_RET     PINB  /**< \~English Port register of FPGA DIN readback \~German Portregister für FPGA-DIN Rücklesung */
+   #define  FPGA_DATA_DIR     DDRB  /**< \~English Port direction of FPGA data \~German Richtungsregister für FPGA-Dateneingang */
 
    #define  FPGA_CCLK_PORT    PORTD /**< \~English Port register of FPGA clock \~German Portregister für FPGA-Takteingang */
-   #define  FPGA_CCLK_RET     PIND  /**< \~English Port register of FPGA clock readback \~German Portregister für FPGA-Takteingang Rücklesung */
+// #define  FPGA_CCLK_RET     PIND  /**< \~English Port register of FPGA clock readback \~German Portregister für FPGA-Takteingang Rücklesung */
    #define  FPGA_CCLK_DIR     DDRD  /**< \~English Port direction of FPGA clock \~German Richtungsregister für FPGA-Takteingang */
    #define  FPGA_CCLK_LINE    0     /**< \~English Port line of FPGA clock \~German Portleitung für FPGA-Takteingang */
 
@@ -101,7 +101,60 @@
    #define  SPI_SS_LINE       0     /**< \~English Port line of SPI core SS \~German Portleitung für SPI-SS */
 
 
+   // Port connections forming bytewide UCIF:
+
+   #define  UCIF_DATA_PORT    PORTB /**< \~English Port register of UCIF output data \~German Portregister für Ausgabedaten zum UCIF */
+   #define  UCIF_DATA_RET     PINB  /**< \~English Port register of UCIF input data \~German Portregister für Eingabedaten vom UCIF */
+   #define  UCIF_DATA_DIR     DDRB  /**< \~English Port direction of UCIF data \~German Richtungsregister für UCIF Daten */
+
+   #define  UCIF_E_PORT       PORTD /**< \~English Port register of UCIF-E line \~German Portregister für UCIF-E Signal */
+   #define  UCIF_E_DIR        DDRD  /**< \~English Port direction of UCIF-E line \~German Richtungsregister für UCIF-E Signal */
+   #define  UCIF_E_LINE       3     /**< \~English Port line of UCIF-E line \~German Portleitung für UCIF-E Signal */
+
+   #define  UCIF_RW_PORT      PORTD /**< \~English Port register of UCIF-RW line \~German Portregister für UCIF-RW Signal */
+   #define  UCIF_RW_DIR       DDRD  /**< \~English Port direction of UCIF-RW line \~German Richtungsregister für UCIF-RW Signal */
+   #define  UCIF_RW_LINE      2     /**< \~English Port line of UCIF-RW line \~German Portleitung für UCIF-RW Signal */
+
+
    // USB properties:
+
+   #define PRODUCT_DESCR_STRING           L"Alchitry Mojo v3 Config Tool, ATmega32U4 @ 8 MHz"
+   /**<
+    * \~ Product descriptor string.
+    *
+    * \~English
+    *  This is a Unicode string containing the product's details in
+    *  human readable form, and is read out upon request by the host
+    *  when the appropriate string ID is requested, listed in the
+    *  Device Descriptor.
+    *
+    * \~German
+    *  Dieser Unicode-String enthält menschenlesbare Angaben zum
+    *  Produkt. Meist ist es nur der Gerätename.
+    *  Der Text wird dem Host auf entsprechende Anforderung gesendet.
+    *  Die zugehörige String-ID ist im Device Deskriptor abgelegt.
+    *  Der Text liegt im FLASH des Controllers.
+    */
+
+
+   #define MANUFACTURER_DESCR_STRING      L"Rene Trapp"
+   /**<
+    * \~ Manufacturer Descriptor string.
+    *
+    * \~English
+    *  This is a Unicode string containing the manufacturer's details
+    *  in human readable form, and is read out upon request by the
+    *  host when the appropriate string ID is requested, listed in
+    *  the Device Descriptor.
+    *
+    * \~German
+    *  Dieser Unicode-String enthält den menschenlesbaren Namen des
+    *  Geräte-Herstellers.
+    *  Der Text wird dem Host auf entsprechende Anforderung gesendet.
+    *  Die zugehörige String-ID ist im Device Deskriptor abgelegt.
+    *  Der Text liegt im FLASH des Controllers.
+    */
+
 
    #define MAX_CURRENT_DRAW             500  // Milliampères
    /**<
