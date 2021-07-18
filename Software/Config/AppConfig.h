@@ -20,6 +20,9 @@
    * LUFA Library *
    Copyright 2017  Dean Camera (dean [at] fourwalledcubicle [dot] com)
    License: "The MIT license"
+
+   ATTENTION:
+     Any license granted expressly **excludes** the VID/PID combination given.
 */
 
 
@@ -54,7 +57,7 @@
    // Port connections forming Xilinx serial configuration interface:
 
    #define  FPGA_DATA_PORT    PORTB /**< \~English Port register of FPGA data \~German Portregister für FPGA-Dateneingang */
-//   #define  FPGA_DATA_RET     PINB  /**< \~English Port register of FPGA DIN readback \~German Portregister für FPGA-DIN Rücklesung */
+// #define  FPGA_DATA_RET     PINB  /**< \~English Port register of FPGA DIN readback \~German Portregister für FPGA-DIN Rücklesung */
    #define  FPGA_DATA_DIR     DDRB  /**< \~English Port direction of FPGA data \~German Richtungsregister für FPGA-Dateneingang */
 
    #define  FPGA_CCLK_PORT    PORTD /**< \~English Port register of FPGA clock \~German Portregister für FPGA-Takteingang */
@@ -118,7 +121,11 @@
 
    // USB properties:
 
-   #define PRODUCT_DESCR_STRING           L"Alchitry Mojo v3 Config Tool, ATmega32U4 @ 8 MHz"
+   #define VENDOR_ID                      0x29DD   // Alchitry Mojo v3
+   #define PRODUCT_ID                     0x8001
+
+
+   #define PRODUCT_DESCR_STRING           L"Alchitry Mojo V3 Config Tool, ATmega32U4 @ 8 MHz"
    /**<
     * \~ Product descriptor string.
     *
@@ -137,7 +144,7 @@
     */
 
 
-   #define MANUFACTURER_DESCR_STRING      L"Rene Trapp"
+   #define MANUFACTURER_DESCR_STRING      L"Embedded Micro, Rene Trapp"
    /**<
     * \~ Manufacturer Descriptor string.
     *

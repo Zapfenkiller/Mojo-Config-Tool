@@ -20,13 +20,6 @@
    * LUFA Library *
    Copyright 2017  Dean Camera (dean [at] fourwalledcubicle [dot] com)
    License: "The MIT license"
-
-ATTENTION:
-  Any license expressly does **not** include the VID/PID used.
-  This has been donated to me, René Trapp, by Microchip Technology Inc.
-  for sole use within my experiments. Your modifications either stay fully
-  unpublished on your lab bench, or you get your own VID/PID
-  combination before publishing / selling your contraption.
 */
 
 
@@ -61,13 +54,13 @@ const USB_Descriptor_Device_t PROGMEM DeviceDescriptor =
 
    .USBSpecification       = VERSION_BCD(1,1,0),
    .Class                  = CDC_CSCP_CDCClass,
-	.SubClass               = CDC_CSCP_NoSpecificSubclass,   // 0x00  'None'
-	.Protocol               = CDC_CSCP_NoSpecificProtocol,   // 0x00  'None'
+   .SubClass               = CDC_CSCP_NoSpecificSubclass,   // 0x00  'None'
+   .Protocol               = CDC_CSCP_NoSpecificProtocol,   // 0x00  'None'
 
    .Endpoint0Size          = FIXED_CONTROL_ENDPOINT_SIZE,   // ./Config/LUFAConfig.h
 
-	.VendorID               = 0x2341,                        // Atmel Corp.?
-	.ProductID              = 0x8036,                        // Arduino Leonardo (application)
+   .VendorID               = VENDOR_ID,                     // ./Config/AppConfig.h
+   .ProductID              = PRODUCT_ID,                    // ./Config/AppConfig.h
    .ReleaseNumber          = VERSION_BCD(                   // ./Config/AppConfig.h
                               RELEASE_MAJOR,                // ./Config/AppConfig.h
                               RELEASE_MINOR,                // ./Config/AppConfig.h
