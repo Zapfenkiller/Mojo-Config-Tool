@@ -35,12 +35,11 @@
 #include "fpga.h"
 #include "Config/AppConfig.h"
 #include <avr/io.h>
-#include <util/delay.h>
 
 
 // Defines:
 
-#define  FPGA_DATA_INIT     FPGA_DATA_DIR    =   0xFF                   /**< \~English FPGA data lines get output \~German Definiert FPGA-Datenleitungen als µC Ausgang */
+#define  FPGA_DATA_OUT      FPGA_DATA_DIR    =   0xFF                   /**< \~English FPGA data lines get output \~German Definiert FPGA-Datenleitungen als µC Ausgang */
 #define  FPGA_DATA_HIZ      FPGA_DATA_DIR    =   0                      /**< \~English FPGA data lines get input \~German Definiert FPGA-Datenleitungen als µC Eingang */
 
 #define  FPGA_CCLK_SET     (FPGA_CCLK_PORT  |=  (1 << FPGA_CCLK_LINE))  /**< \~English Sets FPGA clock to '1' \~German Setzt FPGA-Takteingang auf '1' */
@@ -65,181 +64,217 @@
 #define  FPGA_DONE_HIZ     (FPGA_DONE_DIR   &= ~(1 << FPGA_DONE_LINE))  /**< \~English FPGA DONE gets input \~German Definiert FPGA DONE als µC Eingang */
 #define  FPGA_DONE_READ    (FPGA_DONE_RET   &   (1 << FPGA_DONE_LINE))  /**< \~Reads FPGA DONE state \~German Liest den DONE Status des FPGA */
 
+#define  XILINX_STREAM_STATE_STANDBY    0    /**< \~English Waiting to get startet. \~German Warten auf das Startsignal. */
+#define  XILINX_STREAM_STATE_HEADER     1    /**< \~English Scanning the header. \~German Der Header wird gelesen. */
+#define  XILINX_STREAM_STATE_PREPARE    2    /**< \~English Preparing FPGA for configuration. \~German Das FPGA wird auf Konfigurations-Modus geschaltet. */
+#define  XILINX_STREAM_STATE_BODY       3    /**< \~English Submit the bitstream. \~German Der Bitstream wird übertragen. */
+#define  XILINX_STREAM_STATE_STARTUP    4    /**< \~English Handles start-up sequencing. \~German Kümmert sich um FPGA-Applikation Startsequenz. */
+#define  XILINX_STREAM_STATE_FAIL      99    /**< \~English State if failure occured. \~German Fehlerzustand während der FPGA-Konfiguration. */
 
-//uint8_t  fieldID;
+#define  XILINX_HEADER_STATE_0          0    /**< \~English Checking header intro. \~German Prüft auf gültigen Headeranfang. */
+#define  XILINX_HEADER_STATE_1          1    /**< \~English Checking field type qualifier. \~German Der Feldtyp wird ausgewertet. */
+#define  XILINX_HEADER_STATE_2          2    /**< \~English Reading field string data. \~German Ein Textfeld wird eingelesen. */
+#define  XILINX_HEADER_STATE_SIZE       3    /**< \~English Reading bitstream size. \~German Die Größenangabe des Bitstream wird gelesen. */
+
+
 uint16_t fieldSize;
 uint16_t byteInField;
 uint8_t  xilinxState;
+uint8_t  xilinxHstat;
 uint32_t byteCount;
 uint32_t streamSize;
+uint32_t fourBytes;
 
 
-void XilinxInitGpioLines(void)
+void XilinxInitConfig(void)
 {
-   FPGA_CCLK_HIZ;       // set GPIO as input
-   FPGA_CCLK_SET;       // enable weak pullup
-   FPGA_DATA_HIZ;       // set GPIO as input
-   FPGA_DATA_PORT = 0;  // disable pullup
    FPGA_nPROG_HIZ;      // set GPIO as input
-   FPGA_nPROG_CLR;      // disable pullup
-   FPGA_nINIT_HIZ;      // set GPIO as input
-   FPGA_nINIT_CLR;      // disable weak pullup
+   FPGA_nPROG_SET;      // enable weak pullup
    FPGA_DONE_HIZ;       // set GPIO as input
    FPGA_DONE_CLR;       // disable weak pullup
+   FPGA_CCLK_HIZ;       // set GPIO as input
+   FPGA_CCLK_CLR;       // disable weak pullup
+   FPGA_nINIT_HIZ;      // set GPIO as input
+   FPGA_nINIT_CLR;      // disable weak pullup
+   FPGA_DATA_HIZ;       // set GPIO as input
+   FPGA_DATA_PORT = 0;  // disable weak pullup
+   xilinxState = XILINX_STREAM_STATE_STANDBY;
 }
 
 
-uint8_t XilinxForceConfig(void)
+void XilinxStartConfig(void)
 {
-   // emulate open-drain to /PROG - refer to the output preselection
-   // xapp176: min 300 ns of /PROGRAM low pulse => 300 ns @ 16 MHz = 5 clocks
-   FPGA_nPROG_CLR;   // preselect '0' = GND
-   FPGA_nPROG_INIT;  // set GPIO as output
-   _delay_us(1);     // give the pulse 1 us duration
-   FPGA_nPROG_HIZ;   // set GPIO as input
-   _delay_us(1);     // give the pullup 1 us until reading back
-   // xapp176: no further delay required (but introduced due to following code)
-   return(FPGA_DONE_READ);
-}
-
-
-void XilinxPrepareConfig(void)
-{
+   fourBytes = 0;
    byteCount = 0;
    byteInField = 0;
    fieldSize = 0;
+   streamSize = 0;
    xilinxState = XILINX_STREAM_STATE_HEADER;
-   FPGA_CCLK_CLR;
-   FPGA_CCLK_INIT;
-   FPGA_DATA_INIT;
+   xilinxHstat = XILINX_HEADER_STATE_0;
 }
 
 
-uint8_t XilinxBitstreamHeader(uint8_t byte)
+uint8_t XilinxDoConfig(uint8_t *bytes, uint16_t bCnt)
 {
-   byteCount = byteCount << 8;
-   byteCount = byteCount | byte;
-   byteInField++;
-   if (byteInField == 2)
-      fieldSize = (uint16_t) byteCount;
-   switch (xilinxState)
+   uint16_t n;
+
+   for (;;)
    {
-      case XILINX_STREAM_STATE_HEADER:
-         if ((byteInField == 2) && (fieldSize != 9))
-            xilinxState = XILINX_STREAM_STATE_FAIL;
-         if (byteInField == (fieldSize + 4))
-         {
-            if ((uint16_t) byteCount == 0x0001)
+      switch (xilinxState)
+      {
+         case XILINX_STREAM_STATE_STANDBY:
+            return(XILINX_CFG_READY);
+            break;
+         case XILINX_STREAM_STATE_HEADER:
+            for (n = bCnt; (n > 0) && (xilinxState == XILINX_STREAM_STATE_HEADER); n--)
             {
-               byteInField = 0;
-               xilinxState = XILINX_STREAM_STATE_HEADER_1;
+               uint8_t byte = *bytes++;
+               fourBytes = fourBytes << 8;
+               fourBytes = fourBytes | byte;
+               byteInField++;
+               if (byteInField == 2)
+               {
+                  fieldSize = (uint16_t) fourBytes;
+                  if (fieldSize > 1000)
+                     xilinxState = XILINX_STREAM_STATE_FAIL;
+               }
+               switch (xilinxHstat)
+               {
+                  case XILINX_HEADER_STATE_0:
+                     switch (byteInField)
+                     {
+                        case  2:
+                           if ((uint16_t) fourBytes != 0x0009)
+                              xilinxState = XILINX_STREAM_STATE_FAIL;
+                           break;
+                        case  6:
+                        case 10:
+                           if (fourBytes != 0x0FF00FF0)
+                              xilinxState = XILINX_STREAM_STATE_FAIL;
+                           break;
+                        case 13:
+                           if (fourBytes != 0xF0000001)
+                              xilinxState = XILINX_STREAM_STATE_FAIL;
+                           else
+                              xilinxHstat = XILINX_HEADER_STATE_1;
+                           break;
+                        default:
+                           ;
+                     }
+                     break;
+                  case XILINX_HEADER_STATE_1:
+                     byteInField = 0;
+                     switch (byte)
+                     {
+                        case 'a':
+                        case 'b':
+                        case 'c':
+                        case 'd':
+                           xilinxHstat = XILINX_HEADER_STATE_2;
+                           break;
+                        case 'e':
+                           xilinxHstat = XILINX_HEADER_STATE_SIZE;
+                           break;
+                        default:
+                           xilinxState = XILINX_STREAM_STATE_FAIL;
+                     }
+                     break;
+                  case XILINX_HEADER_STATE_2:
+                     if (byteInField == (fieldSize + 2))
+                     {
+                        if (byte == 0x00)
+                           xilinxHstat = XILINX_HEADER_STATE_1;
+                        else
+                           xilinxState = XILINX_STREAM_STATE_FAIL;
+                     }
+                     break;
+                  case XILINX_HEADER_STATE_SIZE:
+                     if (byteInField == 4)
+                     {
+                        streamSize = fourBytes;
+                        if (streamSize == 0)
+                           xilinxState = XILINX_STREAM_STATE_FAIL;
+                        else
+                           xilinxState = XILINX_STREAM_STATE_PREPARE;
+                     }
+                     break;
+                  default:
+                     xilinxState = XILINX_STREAM_STATE_FAIL;
+               }
             }
-            else
-               xilinxState = XILINX_STREAM_STATE_FAIL;
-         }
-         break;
-      case XILINX_STREAM_STATE_HEADER_1:
-         byteInField = 0;
-         switch (byte)
-         {
-            case 'a':
-            case 'b':
-            case 'c':
-            case 'd':
-//             fieldID = byte;
-               xilinxState = XILINX_STREAM_STATE_HEADER_2;
-               break;
-            case 'e':
-               xilinxState = XILINX_STREAM_STATE_HEADER_E;
-               break;
-            default:
-               xilinxState = XILINX_STREAM_STATE_FAIL;
-         }
-         break;
-      case XILINX_STREAM_STATE_HEADER_2:
-/*
-         if (byteInField > 2)
-            switch (fieldID)
-            {
-               case 'a':
-                  if (byteInField < (MAX_STRING_LENGTH+1))
-                     designName[byteInField-2] = byte;
-                  else
-                     designName[MAX_STRING_LENGTH] = '\0';
-                  break;
-               case 'b':
-                  // FPGA name is coming in (e.g. "2s200pq208")
-                  break;
-               case 'c':
-                  // Date is coming in
-                  break;
-               case 'd':
-                  // Time is coming in
-                  break;
-            }
-*/
-         if (byteInField == (fieldSize + 2))
-         {
-            if (byte == 0)
-               xilinxState = XILINX_STREAM_STATE_HEADER_1;
-            else
-               xilinxState = XILINX_STREAM_STATE_FAIL;
-         }
-         break;
-      case XILINX_STREAM_STATE_HEADER_E:
-         if (byteInField == 4)
-         {
-            streamSize = byteCount;
+            if (n == 0)
+               return(XILINX_CFG_ONGOING);
+            break;
+         case XILINX_STREAM_STATE_PREPARE:
+            // emulate open-drain to /PROG - refer to the output preselection
+            // xapp176: min 300 ns of /PROGRAM low pulse => 300 ns @ 8 MHz = 3 clocks
+            FPGA_nPROG_CLR;      // preselect '0' = GND
+            FPGA_nPROG_INIT;     // set GPIO as output
+            FPGA_nINIT_HIZ;      // set GPIO as input
+            FPGA_nINIT_SET;      // enable weak pullup
+            FPGA_CCLK_CLR;       // preselect '0' = GND
+            FPGA_CCLK_INIT;      // set GPIO as output
+            FPGA_nPROG_HIZ;      // set GPIO as input
+            FPGA_nPROG_SET;      // enable weak pullup
+            while (!FPGA_nINIT_READ)
+               ;
+            // xapp176: no further delay required (but introduced due to following code)
+            FPGA_DATA_OUT;       // set GPIOs as output
+            byteCount = streamSize;
             xilinxState = XILINX_STREAM_STATE_BODY;
-         }
-         break;
-      default:
-         xilinxState = XILINX_STREAM_STATE_FAIL;
-   }
-   return(xilinxState);
-}
-
-
-uint8_t XilinxBitstreamBody(uint8_t bytes[], uint8_t bCount)
-{
-   if (xilinxState == XILINX_STREAM_STATE_BODY)
-   {
-      if (byteCount < (uint32_t) bCount)
-      {
-         bCount = byteCount;
-         byteCount = 0;
+            break;
+         case XILINX_STREAM_STATE_BODY:
+            // ug380, xapp502, xapp176
+            for (n = bCnt; (n > 0) && (byteCount > 0); n--)
+            {
+               FPGA_DATA_PORT = *bytes++;
+               FPGA_CCLK_SET;
+               byteCount--;
+               FPGA_CCLK_CLR;
+            }
+            if (byteCount == 0)
+            {
+               FPGA_DATA_HIZ;
+               FPGA_DATA_PORT = 0xFF;
+               n = 0;
+               xilinxState = XILINX_STREAM_STATE_STARTUP;
+               return(XILINX_CFG_FINISHING);
+            }
+            else
+               return(XILINX_CFG_ONGOING);
+            break;
+         case XILINX_STREAM_STATE_STARTUP:
+            // ug380
+            for (uint16_t i = 1000; (i > 0) && !(FPGA_DONE_READ); i--)
+            {
+               FPGA_CCLK_SET;
+               FPGA_CCLK_CLR;
+            }
+            if (FPGA_DONE_READ)
+            {
+               // ug380
+               for (uint8_t i = 0; i < 8; i++)
+               {
+                  FPGA_CCLK_SET;
+                  FPGA_CCLK_CLR;
+               }
+               FPGA_CCLK_HIZ;       // set GPIO as input
+               FPGA_nINIT_CLR;      // disable weak pullup
+               FPGA_DATA_PORT = 0;  // disable weak pullup
+               xilinxState = XILINX_STREAM_STATE_STANDBY;
+               return(XILINX_CFG_SUCCESS);
+            }
+            else
+               if (++n > 1000)
+                  xilinxState = XILINX_STREAM_STATE_FAIL;
+            return(XILINX_CFG_FINISHING);
+            break;
+         case XILINX_STREAM_STATE_FAIL:
+         default:
+            xilinxState = XILINX_STREAM_STATE_STANDBY;
+            return(XILINX_CFG_FAIL);
       }
-      else
-         byteCount = byteCount - bCount;
-      if (bCount != 0)
-         // ug380, xapp502, xapp176
-         for (uint8_t i = 0; i < bCount; i++)
-         {
-            FPGA_DATA_PORT = bytes[i];
-            FPGA_CCLK_SET;
-            FPGA_CCLK_CLR;
-         }
-      if (byteCount == 0)
-      {
-         for (uint8_t i = 0; i < 8; i++) // 8 sufficient?
-         {
-            FPGA_CCLK_SET;
-            FPGA_CCLK_CLR;
-         }
-         FPGA_CCLK_HIZ;
-         FPGA_CCLK_SET;    // weak pullup
-         xilinxState = XILINX_STREAM_STATE_HEADER;
-      }
    }
-   else
-      xilinxState = XILINX_STREAM_STATE_FAIL;
-   return(xilinxState);
-}
-
-
-uint8_t XilinxReady(void)
-{
-   return(FPGA_nINIT_READ);
 }
 
 

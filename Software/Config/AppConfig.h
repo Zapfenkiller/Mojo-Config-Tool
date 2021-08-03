@@ -118,6 +118,9 @@
    #define  UCIF_RW_DIR       DDRD  /**< \~English Port direction of UCIF-RW line \~German Richtungsregister für UCIF-RW Signal */
    #define  UCIF_RW_LINE      2     /**< \~English Port line of UCIF-RW line \~German Portleitung für UCIF-RW Signal */
 
+   // Possible auxiliary ports for UCIF:
+   // PD0, PD5, PB0
+
 
    // USB properties:
 

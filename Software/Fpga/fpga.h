@@ -43,107 +43,60 @@
 
    // Defines:
 
-   #define  XILINX_STREAM_STATE_HEADER     0    /**< \~English Scanning the header intro. \~German Das Header-Intro wird gelesen. */
-   #define  XILINX_STREAM_STATE_HEADER_1   1    /**< \~English Checking field type qualifier. \~German Der Feldtyp wird ausgewertet. */
-   #define  XILINX_STREAM_STATE_HEADER_2   2    /**< \~English Reading field string data. \~German Ein Textfeld wird eingelesen. */
-   #define  XILINX_STREAM_STATE_HEADER_E   6    /**< \~English Reading bitstream size. \~German Die Größenangabe des Bitstream wird gelesen. */
-   #define  XILINX_STREAM_STATE_BODY      12    /**< \~English Shifting the bitstream \~German Der Bitstream wird verschoben. */
-   #define  XILINX_STREAM_STATE_FAIL      13    /**< \~English State if header failure occured \~German Fehlerzustand während Header-Auswertung. */
+   #define  XILINX_CFG_READY               0    /**< \~English The FPGA configuration waits to get triggered. \~German Die FPGA-Konfiguration wartet auf ihren Einsatz. */
+   #define  XILINX_CFG_ONGOING             1    /**< \~English The FPGA configuration is ongoing, need more data. \~German Die FPGA-Konfiguration ist noch nicht abgeschlossen, benötigt mehr Daten. */
+   #define  XILINX_CFG_FINISHING           2    /**< \~English The FPGA configuration is in the start-up sequence. \~German Die FPGA-Konfiguration ist in der Start-Up Phase. */
+   #define  XILINX_CFG_SUCCESS             3    /**< \~English The FPGA is configured. \~German Die FPGA-Konfiguration ist abgeschlossen. */
+   #define  XILINX_CFG_FAIL              255    /**< \~English The FPGA configuration got aborted. \~German Die FPGA-Konfiguration wurde abgebrochen. */
 
 
    // Function Prototypes:
 
-   void XilinxInitGpioLines(void);
+   void XilinxInitConfig(void);
    /**<
     * \~English
-    *  initializes the microcontroller GPIO hardware to serve a Spartan II
-    *  serial slave mode configuration.
-    * \~German
-    *  initialisiert die GPIOs des Mikrokontrollers um einen Spartan II im
-    *  'serial slave mode' zu konfigurieren.
-    */
-
-
-   uint8_t XilinxForceConfig(void);
-   /**<
-    * \~English
-    *  forces the FPGA into configuration. \code /PROG \endcode needs to be
-    *  connected to the FPGA. \code /PROG \endcode emulates an open drain stage.
-    *  @return '0' (false) in case the DONE is pulled to GND,
-    *          !'0' (true) in case DONE still is released to VCC.
+    *  initializes the microcontroller GPIO hardware to regular (non-critical)
+    *  settings. First initialization during boot or preparation of application
+    *  usage.
     *
     * \~German
-    *  bringt das FPGA in den Konfigurationsmodus. \code /PROG \endcode muss
-    *  am FPGA angeschlossen sein. \code /PROG \endcode verhält sich wie ein
-    *  Open-Kollektor Ausgang.
-    *  @return '0' (false) falls DONE auf GND gezogen bleibt,
-    *          !'0' (true) falls DONE auf VCC liegt.
+    *  initialisiert die GPIOs des Mikrokontrollers auf unkritische
+    *  Einstellungen. Geeignet zur Erstinitalisierung oder für die spätere
+    *  Nutzung durch die Applikation.
     */
 
 
-   void XilinxPrepareConfig(void);
+   void XilinxStartConfig(void);
    /**<
     * \~English
-    *  initializes the Xilinx bitstream handler.
+    *  prepares the FPGA configuration logic.
     *
     * \~German
-    *  initialisiert die Verarbeitung eines Xilinx bitstreams.
+    *  bereitet die Konfigurationslogik vor.
     */
 
 
-   uint8_t XilinxReady(void);
+   uint8_t XilinxDoConfig(uint8_t *bytes, uint16_t bCnt);
    /**<
     * \~English
-    *  reports if FPGA is ready to configure.
-    *  @return !'0' (true) in case the /INIT line is released to VCC,
-    *          '0' (false) in case /INIT still is pulled to GND.
-    *
-    * \~German
-    *  sagt aus, ob das FPGA zur Konfiguration bereit ist.
-    *  @return !'0' (true) falls /INIT auf VCC liegt,
-    *          '0' (false) falls /INIT auf GND gezogen bleibt.
-    */
-
-
-   uint8_t XilinxBitstreamHeader(uint8_t byte);
-   /**<
-    * \~English
-    *  scans header to get size and start of bitstream (xapp176.pdf).
-    *  @param[in] one data byte from bitstream header.
-    *  @return XILINX_STREAM_STATE_HEADER,
-    *          XILINX_STREAM_STATE_HEADER_1,
-    *          XILINX_STREAM_STATE_HEADER_2,
-    *          XILINX_STREAM_STATE_HEADER_E,
-    *          XILINX_STREAM_STATE_BODY,
-    *          XILINX_STREAM_FAIL.
-    *
-    * \~German
-    *  durchsucht den Header nach Größe und Beginn des Bitstream (xapp176.pdf).
-    *  @param[in] ein Byte des Bitstream-Headers.
-    *  @return XILINX_STREAM_STATE_HEADER,
-    *          XILINX_STREAM_STATE_HEADER_1,
-    *          XILINX_STREAM_STATE_HEADER_2,
-    *          XILINX_STREAM_STATE_HEADER_E,
-    *          XILINX_STREAM_STATE_BODY,
-    *          XILINX_STREAM_FAIL.
-    */
-
-
-   uint8_t XilinxBitstreamBody(uint8_t bytes[], uint8_t bCount);
-   /**<
-    * \~English
-    *  transfers a Xilinx bitstream (*.bit) into a Spartan-II FPGA.
+    *  processes one data packet of size \code bCnt \endcode bytes.
     *  @param[in] pointer to the input stream.
     *  @param[in] count of bytes ready.
-    *  @return XILINX_STREAM_STATE_HEADER,
-    *          XILINX_STREAM_STATE_BODY.
+    *  @return XILINX_CFG_READY,
+    *          XILINX_CFG_ONGOING,
+    *          XILINX_CFG_FINISHING,
+    *          XILINX_CFG_SUCCESS,
+    *          XILINX_CFG_FAIL.
     *
     * \~German
-    *  überträgt einen Xilinx Bitstream  (*.bit) zum Spartan-II FPGA.
+    *  verarbeitet ein Datenpaket der Größe \code bCnt \endcode Bytes.
     *  @param[in] Zeiger auf den Datenstrom.
     *  @param[in] Anzahl der bereitstehenden Bytes.
-    *  @return XILINX_STREAM_STATE_HEADER,
-    *          XILINX_STREAM_STATE_BODY.
+    *  @return XILINX_CFG_READY,
+    *          XILINX_CFG_ONGOING,
+    *          XILINX_CFG_FINISHING,
+    *          XILINX_CFG_SUCCESS,
+    *          XILINX_CFG_FAIL.
     */
 
 

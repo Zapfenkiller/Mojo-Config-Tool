@@ -47,12 +47,8 @@
    #define  MM_HELLO                    1
    #define  MM_PROMPT                   2
    #define  MM_LISTEN                   3
-   #define  MM_XILINX_TRIGGER_CONFIG   10
-   #define  MM_XILINX_RESPOND_TRIGGER  11
-   #define  MM_XILINX_SCAN_HEADER      12
-   #define  MM_XILINX_CONFIGURE        13
-   #define  MM_XILINX_CHECK_SUCCESS    14
-   #define  MM_XILINX_FAILED           99
+   #define  MM_XILINX_TRIGGER_CONFIG    4
+   #define  MM_XILINX_CONFIGURE         5
 
 
    // Function Prototypes:

@@ -23,7 +23,7 @@
  *   @brief FPGA Configuration Tool core.
  *
  *  \~German
- *   @brief ...
+ *   @brief Das FPGA-Configuration-Tool.
  */
 
 
@@ -31,6 +31,7 @@
 #include "Descriptors.h"
 #include "Fct.h"
 #include "Fpga/fpga.h"
+#include "stdio.h"
 #include <LUFA/Drivers/USB/USB.h>
 #include <LUFA/Platform/Platform.h>
 #include <avr/interrupt.h>
@@ -39,9 +40,13 @@
 #include <avr/wdt.h>
 
 
-/** LUFA CDC Class driver interface configuration and state information. This structure is
- *  passed to all CDC Class driver functions, so that multiple instances of the same class
- *  within a device can be differentiated from one another.
+/**
+ *  \~English
+ *   LUFA CDC Class driver interface configuration and state information. This structure is
+ *   passed to all CDC Class driver functions, so that multiple instances of the same class
+ *   within a device can be differentiated from one another.
+ *
+ *  \~German
  */
 USB_ClassInfo_CDC_Device_t VirtualSerial_CDC_Interface =
    {
@@ -82,28 +87,25 @@ static FILE USBSerialStream;
 
 
 const char PROGMEM greetStr[]    = "\r\n\n\n* Spartan Configurator *\n\r(c) 2021, René Trapp\n";
-const char PROGMEM promptStr[]   = "\r\n>";
+const char PROGMEM promptStr[]   = "\r\n> ";
 const char PROGMEM unknownStr[]  = " <-?";
-const char PROGMEM needStr[]     = "\r\nFPGA-Konfiguration erforderlich, bitte Bitstream-Datei (*.bit) senden.";
-const char PROGMEM sizeStr[]     = "\r\nBitstream = %lu Bytes";
-const char PROGMEM successStr[]  = "\r\nFPGA erfolgreich konfiguriert.";
-const char PROGMEM failStr[]     = "\r\nFehler bei der FPGA-Konfiguration!";
-const char PROGMEM noprogStr[]   = "\r\n/PROG nicht angeschlossen!";
-const char PROGMEM helpStr[]     = "\r\nKommandos:\r\n C: Trigger FPGA to configure from file\r\n ?: This 'manpage'\n";
-const char PROGMEM noBitStr[]    = "\r\nNot a valid bitstream! Wrong file or not in BINARY transfer mode.\r\nYou can safely abort the transfer.\r\nPress <RETURN>";
-//const char PROGMEM doneLineStr[] = "\r\n DONE: %c";
-//const char PROGMEM initLineStr[] = "\r\n/INIT: %c";
+const char PROGMEM needStr[]     = "\r\nFPGA configuration ready, awaiting bitstream (.bit) file.\r\n";
+const char PROGMEM successStr[]  = "** FPGA successfully configured. **";
+const char PROGMEM failStr[]     = "** FPGA configuration failed! **";
+const char PROGMEM helpStr[]     = "\r\nAccepted commands:\r\n U: USB-Configure (configure FPGA from file)\r\n ?: This 'manpage'\n";
 
 uint8_t  mainMachine;
 
-uint8_t  rBuffer[CDC_TXRX_EPSIZE]; // Just one EP size is perfect.
+uint8_t  rBuffer[CDC_TXRX_EPSIZE]; // Minimum one EP size, more when SPI-FLASH is getting used.
 uint16_t rCount;
 
 
 int main(void)
 {
+   wdt_disable();
+
    clock_prescale_set(clock_div_1);
-   XilinxInitGpioLines();
+   XilinxInitConfig();
 
    mainMachine = MM_OFFLINE_MODE;
 
@@ -125,9 +127,20 @@ int main(void)
             rBuffer[n] = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
       }
 
-      // Handle the configuration request(s).
+// [x]   '?' = Hilfetext
+// [x]   'U' = USB-Configure (Bitstream vom USB zum FPGA)
+// [ ]   'W' = Schreibe Bitstream ins Flash (Bitstream vom USB ins serielle Flash)
+// [ ]   'F' = FLASH-Configure (Bitstream vom seriellen FLASH zum FPGA)
+// [ ]   'i' = Header-Info aus dem FLASH (nur Infofelder in Klarschrift)
+// [ ]   'r' = Lies Bitstream vom FLASH (Bitstream vom Flash zum USB)
+// [ ]   'h' = Lies Bitstream vom FLASH in ASCII-Hex-Darstellung
+
       switch (mainMachine)
       {
+         case MM_OFFLINE_MODE:
+            if (!XilinxConfigured())
+               mainMachine = MM_HELLO;
+            break;
          case MM_HELLO:
             fputs_P(greetStr, &USBSerialStream);
             fputs_P(helpStr, &USBSerialStream);
@@ -137,100 +150,52 @@ int main(void)
             mainMachine = MM_LISTEN;
             // There is intentionally no `break;` here!
          case MM_LISTEN:
-// [ ] prüfen ob DONE != '1' und automatische Config starten
-//     aber nur wenn der Bitstream lokal verfügbar ist => 3te Ausbaustufe
-// [x] prüfen ob DONE != '1' und per Terminal nach dem Bitstream fragen
-//     => 1te Ausbaustufe
-            if (!XilinxConfigured()) // && XilinxPowered())
-               mainMachine = MM_XILINX_RESPOND_TRIGGER;
             if (rCount == 1)
             {
                CDC_Device_SendByte(&VirtualSerial_CDC_Interface, rBuffer[0]);
+               mainMachine = MM_PROMPT;
                switch (rBuffer[0])
                {
-//                case 's':
-//                   fprintf_P(&USBSerialStream, doneLineStr, XilinxConfigured() ? '1' : '0');
-//                   fprintf_P(&USBSerialStream, initLineStr, XilinxReady() ? '1' : '0');
-//                   break;
-// [x] Config per nPROG erzwingen => 2te Ausbaustufe mit Extradraht.
-                  case 'C':
+                  case 'U':
                      mainMachine = MM_XILINX_TRIGGER_CONFIG;
                      break;
-//                case 'F':
-//                   
-//                   break;
                   case '?':
                      mainMachine = MM_HELLO;
+                     break;
+                  case '\r':
+                  case '\n':
                      break;
                   default:
                      fputs_P(unknownStr, &USBSerialStream);
                }
-               if (mainMachine == MM_LISTEN)
-                  mainMachine = MM_PROMPT;
             }
-            break;
-         case MM_OFFLINE_MODE:
-//          if (!XilinxConfigured())
-//          {
-//             mainMachine = MM_XILINX_RESPOND_TRIGGER;
-//          }
-            if (rCount)
-               mainMachine = MM_HELLO;
             break;
          case MM_XILINX_TRIGGER_CONFIG:
-            if (XilinxForceConfig())
-               mainMachine = MM_XILINX_RESPOND_TRIGGER;
-            else
-            {
-               mainMachine = MM_PROMPT;
-               fputs_P(noprogStr, &USBSerialStream);
-            }
-            break;
-         case MM_XILINX_RESPOND_TRIGGER:
-            if (XilinxReady())
-            {
-               XilinxPrepareConfig();
-               mainMachine = MM_XILINX_SCAN_HEADER;
-               fputs_P(needStr, &USBSerialStream);
-            }
-            break;
-         case MM_XILINX_SCAN_HEADER:
-            for (uint8_t n = 0; (n < rCount); n++)
-            {
-               switch (XilinxBitstreamHeader(rBuffer[n]))
-               {
-                  case XILINX_STREAM_STATE_BODY:
-                     fprintf_P(&USBSerialStream, sizeStr, XilinxBitstreamSize());
-                     XilinxBitstreamBody(&rBuffer[n+1], rCount - n);
-                     mainMachine = MM_XILINX_CONFIGURE;
-                     n = rCount;
-                     break;
-                  case XILINX_STREAM_STATE_FAIL:
-                     fputs_P(noBitStr, &USBSerialStream);
-                     mainMachine = MM_XILINX_FAILED;
-                     n = rCount;
-                     break;
-                  default:
-                     ;
-               }
-            }
+            XilinxStartConfig();
+            fputs_P(needStr, &USBSerialStream);
+            mainMachine = MM_XILINX_CONFIGURE;
             break;
          case MM_XILINX_CONFIGURE:
-            if (rCount)
-               if (XilinxBitstreamBody(rBuffer, rCount) == XILINX_STREAM_STATE_HEADER)
-                  mainMachine = MM_XILINX_CHECK_SUCCESS;
-            break;
-         case MM_XILINX_CHECK_SUCCESS:
-            if (XilinxConfigured())
-               fputs_P(successStr, &USBSerialStream);
-            else
-               fputs_P(failStr, &USBSerialStream);
-            mainMachine = MM_PROMPT;
-            break;
-         case MM_XILINX_FAILED:
-            if (rCount == 1)
-               if (rBuffer[0] == 0x0d)
+            switch (XilinxDoConfig(rBuffer, rCount))
+            {
+               case XILINX_CFG_ONGOING:
+                  if (rCount > 0)
+                  {
+                     fprintf(&USBSerialStream, "%7lu /", XilinxBitstreamLeft());
+                     fprintf(&USBSerialStream, "%7lu\r", XilinxBitstreamSize());
+                  }
+                  break;
+               case XILINX_CFG_SUCCESS:
+                  fputs_P(successStr, &USBSerialStream);
                   mainMachine = MM_PROMPT;
+                  break;
+               case XILINX_CFG_FAIL:
+                  fputs_P(failStr, &USBSerialStream);
+                  mainMachine = MM_PROMPT;
+                  break;
+               default:
+                  ;
+            }
             break;
          default:
             ;
@@ -238,20 +203,14 @@ int main(void)
 
       CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
       USB_USBTask();
+
    }
 }
-
-// 's' = Status DONE und /INIT? Sinnlos, weil !DONE die Konfig auch startet.
-// 'C' = Configure (Bitstream vom USB zum FPGA)
-// 'F' = Schreibe Bitstream ins Flash (Bitstream vom USB ins serielle Flash)
-// 'i' = Header-Info aus dem Flash (nur Infofelder in Klarschrift)
-// 'r' = Hole Bitstream vom Flash (Bitstream vom Flash zum USB)
-// '?' = Hilfetext
-// Flash-Version: If !DONE && Terminal dran => woher: USB / Lokal?
 
 
 void EVENT_USB_Device_Connect(void)
 {
+   mainMachine = MM_HELLO;
 }
 
 
@@ -282,18 +241,27 @@ void EVENT_CDC_Device_ControLineStateChanged(USB_ClassInfo_CDC_Device_t *const C
 
 void EVENT_CDC_Device_LineEncodingChanged(USB_ClassInfo_CDC_Device_t *const CDCInterfaceInfo)
 {
-   if (CDCInterfaceInfo->State.LineEncoding.BaudRateBPS == 1200)
+   switch (CDCInterfaceInfo->State.LineEncoding.BaudRateBPS)
    {
-      // If USB is used, detach from the bus and reset it
-      USB_Disable();
-      // Disable all interrupts
-      cli();
-      // Stash the magic key
-      uint16_t bootKey = 0x7777;
-      uint16_t *const bootKeyPtr = (uint16_t *)0x0800;
-      *bootKeyPtr = bootKey;
-      // Let the WDT do a full HW reset
-      wdt_enable(WDTO_250MS);
-      for (;;);
+      case 1200:
+         // Activate the Arduino bootloader (Caterina)
+         // Detach USB
+         USB_Disable();
+         // Disable all interrupts
+         cli();
+         // Stash the magic key
+         uint16_t bootKey = 0x7777;
+         uint16_t *const bootKeyPtr = (uint16_t *)0x0800;
+         *bootKeyPtr = bootKey;
+         // Let the WDT do a full HW reset
+         // 250 ms is for the USB host to really catch the disconnect
+         wdt_enable(WDTO_250MS);
+         for (;;);
+         break; // just for the convenient look, RESET strikes in the for-loop
+      case 2400:
+         // Turn on command line response to handle FPGA configuration
+         mainMachine = MM_HELLO;
+         break;
+      default: ;
    }
 }
