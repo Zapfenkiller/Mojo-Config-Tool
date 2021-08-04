@@ -102,6 +102,8 @@ uint16_t rCount;
 
 int main(void)
 {
+   /* Disable watchdog if enabled by bootloader/fuses */
+   MCUSR &= ~(1 << WDRF);
    wdt_disable();
 
    clock_prescale_set(clock_div_1);
