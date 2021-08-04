@@ -37,8 +37,8 @@ LD_FLAGS     =
 # Default target
 all:
 # Move result files
-	mv *.hex $(RESULT_PATH)/
-	mv *.eep $(RESULT_PATH)/
+	mv *.hex $(RESULT_PATH)/$(TARGET)-Mojo-$(MCU).hex
+#	mv *.eep $(RESULT_PATH)/
 
 docu:
 	c:\Program Files\doxygen\bin\doxygen.exe ./Doxyfile_eng

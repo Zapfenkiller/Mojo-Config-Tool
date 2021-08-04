@@ -102,7 +102,10 @@ uint16_t rCount;
 
 int main(void)
 {
-   /* Disable watchdog if enabled by bootloader/fuses */
+   // Disable watchdog if enabled by bootloader/fuses, only works if WDRF is
+   // cleared. Ensures some board response, even if BOOTRST is unprogrammed!
+   // With BOOTRST unprogrammed any attempt to start the Bootloader just
+   // restarts the application.
    MCUSR &= ~(1 << WDRF);
    wdt_disable();
 
