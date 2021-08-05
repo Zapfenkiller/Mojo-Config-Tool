@@ -43,7 +43,7 @@
 
    // Defines:
 
-   #define  MM_OFFLINE_MODE             0
+   #define  MM_APPLICATION_MODE         0
    #define  MM_HELLO                    1
    #define  MM_PROMPT                   2
    #define  MM_LISTEN                   3

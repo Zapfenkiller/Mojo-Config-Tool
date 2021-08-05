@@ -131,7 +131,8 @@ void XilinxReset(void)
 
 uint8_t XilinxDoConfig(uint8_t *bytes, uint16_t bCnt)
 {
-   static uint8_t n;
+   uint16_t n = 0;
+   static uint8_t trial = 0;
 
    for (;;)
    {
@@ -242,7 +243,7 @@ uint8_t XilinxDoConfig(uint8_t *bytes, uint16_t bCnt)
             {
                FPGA_DATA_HIZ;
                FPGA_DATA_PORT = 0xFF;
-               n = 0;
+               trial = 0;
                xilinxState = XILINX_STREAM_STATE_STARTUP;
                return(XILINX_CFG_FINISHING);
             }
@@ -259,7 +260,7 @@ uint8_t XilinxDoConfig(uint8_t *bytes, uint16_t bCnt)
             if (FPGA_DONE_READ)
             {
                // ug380
-               for (uint8_t i = 0; i < 8; i++)
+               for (uint8_t i = 8; i > 0; i--)
                {
                   FPGA_CCLK_SET;
                   FPGA_CCLK_CLR;
@@ -271,7 +272,7 @@ uint8_t XilinxDoConfig(uint8_t *bytes, uint16_t bCnt)
                return(XILINX_CFG_SUCCESS);
             }
             else
-               if (++n > 100)
+               if (++trial > 100)
                   xilinxState = XILINX_STREAM_STATE_FAIL;
             return(XILINX_CFG_FINISHING);
             break;

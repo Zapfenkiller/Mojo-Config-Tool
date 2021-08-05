@@ -31,6 +31,7 @@
 #include "Descriptors.h"
 #include "Fct.h"
 #include "Fpga/fpga.h"
+#include "SPI-flash/flash.h"
 #include "stdio.h"
 #include <LUFA/Drivers/USB/USB.h>
 #include <LUFA/Platform/Platform.h>
@@ -90,9 +91,9 @@ const char PROGMEM greetStr[]    = "\r\n\n\n* Spartan Configurator *\n\r(c) 2021
 const char PROGMEM promptStr[]   = "\r\n> ";
 const char PROGMEM unknownStr[]  = " <-?";
 const char PROGMEM needStr[]     = "\r\nFPGA configuration ready, awaiting bitstream (.bit) file.\r\n";
-const char PROGMEM successStr[]  = "** FPGA successfully configured. **";
-const char PROGMEM failStr[]     = "** FPGA configuration failed! **";
-const char PROGMEM helpStr[]     = "\r\nAccepted commands:\r\n U: USB-Configure (configure FPGA from file)\r\n ?: This 'manpage'\n";
+const char PROGMEM successStr[]  = "\r\n** FPGA successfully configured. **";
+const char PROGMEM failStr[]     = "\r\n** FPGA configuration failed! **";
+const char PROGMEM helpStr[]     = "\r\nAccepted commands:\r\n V: Volatile USB-Configuration\r\n ?: This 'manpage'\n";
 
 uint8_t  mainMachine;
 
@@ -105,14 +106,15 @@ int main(void)
    // Disable watchdog if enabled by bootloader/fuses, only works if WDRF is
    // cleared. Ensures some board response, even if BOOTRST is unprogrammed!
    // With BOOTRST unprogrammed any attempt to start the Bootloader just
-   // restarts the application.
+   // restarts the application instead.
    MCUSR &= ~(1 << WDRF);
    wdt_disable();
 
    clock_prescale_set(clock_div_1);
    XilinxInitConfig();
+   spiBaseInitHw();
 
-   mainMachine = MM_OFFLINE_MODE;
+   mainMachine = MM_APPLICATION_MODE;
 
    /* Create a regular character stream for the interface so that it can be used with the stdio.h functions */
    CDC_Device_CreateStream(&VirtualSerial_CDC_Interface, &USBSerialStream);
@@ -133,18 +135,20 @@ int main(void)
       }
 
 // [x]   '?' = Hilfetext
-// [x]   'U' = USB-Configure (Bitstream vom USB zum FPGA)
-// [ ]   'W' = Schreibe Bitstream ins Flash (Bitstream vom USB ins serielle Flash)
-// [ ]   'F' = FLASH-Configure (Bitstream vom seriellen FLASH zum FPGA)
+// [x]   'V' = Volatile USB-Configuration (Bitstream vom USB zum FPGA)
+// [ ]   'N' = Non-volatile Configuration (Bitstream vom USB ins serielle Flash)
+// [ ]   'C' = FLASH-Configure (Bitstream vom seriellen FLASH zum FPGA)
 // [ ]   'i' = Header-Info aus dem FLASH (nur Infofelder in Klarschrift)
 // [ ]   'r' = Lies Bitstream vom FLASH (Bitstream vom Flash zum USB)
 // [ ]   'h' = Lies Bitstream vom FLASH in ASCII-Hex-Darstellung
 
       switch (mainMachine)
       {
-         case MM_OFFLINE_MODE:
+         case MM_APPLICATION_MODE:
             if (!XilinxConfigured())
                mainMachine = MM_HELLO;
+//          else
+//             user application should run from here.
             break;
          case MM_HELLO:
             fputs_P(greetStr, &USBSerialStream);
@@ -161,11 +165,14 @@ int main(void)
                mainMachine = MM_PROMPT;
                switch (rBuffer[0])
                {
-                  case 'U':
+                  case 'V':
                      mainMachine = MM_XILINX_TRIGGER_CONFIG;
                      break;
                   case '?':
                      mainMachine = MM_HELLO;
+                     break;
+                  case 'i':
+                     fprintf(&USBSerialStream, " %2x", getFlashChipID());
                      break;
                   case '\r':
                   case '\n':
@@ -186,13 +193,13 @@ int main(void)
                case XILINX_CFG_ONGOING:
                   if (rCount > 0)
                   {
-                     fprintf(&USBSerialStream, "%7lu /", XilinxBitstreamLeft());
-                     fprintf(&USBSerialStream, "%7lu\r", XilinxBitstreamSize());
+                     fprintf(&USBSerialStream, "\r%7lu /", XilinxBitstreamLeft());
+                     fprintf(&USBSerialStream, "%7lu ", XilinxBitstreamSize());
                   }
                   break;
                case XILINX_CFG_SUCCESS:
                   fputs_P(successStr, &USBSerialStream);
-                  mainMachine = MM_PROMPT;
+                  mainMachine = MM_APPLICATION_MODE;
                   break;
                case XILINX_CFG_FAIL:
                   fputs_P(failStr, &USBSerialStream);
@@ -221,7 +228,7 @@ void EVENT_USB_Device_Connect(void)
 
 void EVENT_USB_Device_Disconnect(void)
 {
-   mainMachine = MM_OFFLINE_MODE;
+   mainMachine = MM_APPLICATION_MODE;
 }
 
 
@@ -246,27 +253,32 @@ void EVENT_CDC_Device_ControLineStateChanged(USB_ClassInfo_CDC_Device_t *const C
 
 void EVENT_CDC_Device_LineEncodingChanged(USB_ClassInfo_CDC_Device_t *const CDCInterfaceInfo)
 {
+   volatile uint16_t *const bootKeyPtr = (volatile uint16_t *)0x0800;
+
    switch (CDCInterfaceInfo->State.LineEncoding.BaudRateBPS)
    {
-      case 1200:
-         // Activate the Arduino bootloader (Caterina)
+      case 1200:  // Activate the Arduino bootloader (Caterina)
          // Detach USB
          USB_Disable();
          // Disable all interrupts
          cli();
          // Stash the magic key
-         uint16_t bootKey = 0x7777;
-         uint16_t *const bootKeyPtr = (uint16_t *)0x0800;
-         *bootKeyPtr = bootKey;
+         *bootKeyPtr = (uint16_t)0x7777;
          // Let the WDT do a full HW reset
          // 250 ms is for the USB host to really catch the disconnect
          wdt_enable(WDTO_250MS);
          for (;;);
          break; // just for the convenient look, RESET strikes in the for-loop
-      case 2400:
-         // Turn on command line response to handle FPGA configuration
-         mainMachine = MM_HELLO;
+      case 2400:  // Turn on command line response to handle FPGA (re)configuration
+         XilinxReset();
+         USB_Disable();
+         cli();
+         *bootKeyPtr = (uint16_t)0x8888; // just any value != 0x7777 will do
+         wdt_enable(WDTO_250MS);
+         for (;;);
          break;
-      default: ;
+      default:
+         // No particular action necessary.
+         ;
    }
 }

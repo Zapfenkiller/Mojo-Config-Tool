@@ -82,26 +82,16 @@
 
    // Port connections forming SPI-FLASH interface:
 
-   #define  FLASH_MOSI_PORT   PORTB /**< \~English Port register of FLASH MOSI \~German Portregister für FLASH-MOSI */
-   #define  FLASH_MOSI_DIR    DDRB  /**< \~English Port direction of FLASH MOSI \~German Richtungsregister für FLASH-MOSI */
-   #define  FLASH_MOSI_LINE   2     /**< \~English Port line of FLASH MOSI \~German Portleitung für FLASH-MOSI */
-
-   #define  FLASH_MISO_PORT   PORTB /**< \~English Port register of FLASH MISO \~German Portregister für FLASH-MISO */
-// #define  FLASH_MISO_RET    PINB  /**< \~English Port register of FLASH MISO readback \~German Portregister für FLASH-MISO Rücklesung */
-   #define  FLASH_MISO_DIR    DDRB  /**< \~English Port direction of FLASH MISO \~German Richtungsregister für FLASH-MISO */
-   #define  FLASH_MISO_LINE   3     /**< \~English Port line of FLASH MISO \~German Portleitung für FLASH-MISO */
-
-   #define  FLASH_SCK_PORT    PORTB /**< \~English Port register of FLASH SCK \~German Portregister für FLASH-SCK */
-   #define  FLASH_SCK_DIR     DDRB  /**< \~English Port direction of FLASH SCK \~German Richtungsregister für FLASH-SCK */
-   #define  FLASH_SCK_LINE    1     /**< \~English Port line of FLASH SCK \~German Portleitung für FLASH-SCK */
+   #define  SPI_CORE_PORT     PORTB /**< \~English Port register of SPI core IOs \~German Portregister für IOs der SPI */
+   #define  SPI_CORE_DIR      DDRB  /**< \~English Port direction of FLASH MOSI \~German Richtungsregister für FLASH-MOSI */
+   #define  SPI_MISO_LINE     3     /**< \~English Port line of FLASH MISO \~German Portleitung für FLASH-MISO */
+   #define  SPI_MOSI_LINE     2     /**< \~English Port line of FLASH MOSI \~German Portleitung für FLASH-MOSI */
+   #define  SPI_SCK_LINE      1     /**< \~English Port line of FLASH SCK \~German Portleitung für FLASH-SCK */
+   #define  SPI_SS_LINE       0     /**< \~English Port line of SPI core SS \~German Portleitung für SPI-SS */
 
    #define  FLASH_CS_PORT     PORTD /**< \~English Port register of FLASH CS \~German Portregister für FLASH-CS */
    #define  FLASH_CS_DIR      DDRD  /**< \~English Port direction of FLASH CS \~German Richtungsregister für FLASH-CS */
    #define  FLASH_CS_LINE     1     /**< \~English Port line of FLASH CS \~German Portleitung für FLASH-CS */
-
-   #define  SPI_SS_PORT       PORTB /**< \~English Port register of SPI core SS \~German Portregister für SPI-SS */
-   #define  SPI_SS_DIR        DDRB  /**< \~English Port direction of SPI core SS \~German Richtungsregister für SPI-SS */
-   #define  SPI_SS_LINE       0     /**< \~English Port line of SPI core SS \~German Portleitung für SPI-SS */
 
 
    // Port connections forming bytewide UCIF:

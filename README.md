@@ -12,4 +12,5 @@ Setting COM to 1200 baud resets the ATmega into its Arduino compliant
 Caterina-bootloader.
 
 Setting COM to 2400 baud resets the FPGA and ATmega back into the configuration
-mode.
+mode. In this mode the FPGA is **not** automatically configured from the
+SPI-FLASH content.

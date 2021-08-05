@@ -27,6 +27,7 @@ TARGET       = fct
 SRC          = $(TARGET).c
 SRC         += Descriptors.c
 SRC         += Fpga/fpga.c
+SRC         += SPI-flash/flash.c
 SRC         += $(LUFA_SRC_USB)
 SRC         += $(LUFA_SRC_USBCLASS)
 LUFA_PATH    = ./LUFA
