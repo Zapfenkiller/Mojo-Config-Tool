@@ -76,6 +76,16 @@
     */
 
 
+   void XilinxReset(void);
+   /**<
+    * \~English
+    *  forces the FPGA into configuration.
+    *
+    * \~German
+    *  setzt FPGA zurück, Konfiguration wird erwartet.
+    */
+
+
    uint8_t XilinxDoConfig(uint8_t *bytes, uint16_t bCnt);
    /**<
     * \~English

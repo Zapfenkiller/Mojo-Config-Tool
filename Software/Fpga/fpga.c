@@ -114,9 +114,24 @@ void XilinxStartConfig(void)
 }
 
 
+void XilinxReset(void)
+{
+   // emulate open-drain to /PROG - refer to the output preselection
+   // xapp176: min 300 ns of /PROGRAM low pulse => 300 ns @ 8 MHz = 3 clocks
+   FPGA_nPROG_CLR;      // preselect '0' = GND
+   FPGA_nPROG_INIT;     // set GPIO as output
+   FPGA_nINIT_HIZ;      // set GPIO as input
+   FPGA_nINIT_SET;      // enable weak pullup
+   FPGA_CCLK_CLR;       // preselect '0' = GND
+   FPGA_CCLK_INIT;      // set GPIO as output
+   FPGA_nPROG_HIZ;      // set GPIO as input
+   FPGA_nPROG_SET;      // enable weak pullup
+}
+
+
 uint8_t XilinxDoConfig(uint8_t *bytes, uint16_t bCnt)
 {
-   uint16_t n;
+   static uint8_t n;
 
    for (;;)
    {
@@ -206,16 +221,7 @@ uint8_t XilinxDoConfig(uint8_t *bytes, uint16_t bCnt)
                return(XILINX_CFG_ONGOING);
             break;
          case XILINX_STREAM_STATE_PREPARE:
-            // emulate open-drain to /PROG - refer to the output preselection
-            // xapp176: min 300 ns of /PROGRAM low pulse => 300 ns @ 8 MHz = 3 clocks
-            FPGA_nPROG_CLR;      // preselect '0' = GND
-            FPGA_nPROG_INIT;     // set GPIO as output
-            FPGA_nINIT_HIZ;      // set GPIO as input
-            FPGA_nINIT_SET;      // enable weak pullup
-            FPGA_CCLK_CLR;       // preselect '0' = GND
-            FPGA_CCLK_INIT;      // set GPIO as output
-            FPGA_nPROG_HIZ;      // set GPIO as input
-            FPGA_nPROG_SET;      // enable weak pullup
+            XilinxReset();
             while (!FPGA_nINIT_READ)
                ;
             // xapp176: no further delay required (but introduced due to following code)
@@ -245,7 +251,7 @@ uint8_t XilinxDoConfig(uint8_t *bytes, uint16_t bCnt)
             break;
          case XILINX_STREAM_STATE_STARTUP:
             // ug380
-            for (uint16_t i = 1000; (i > 0) && !(FPGA_DONE_READ); i--)
+            for (uint8_t i = 100; (i > 0) && !(FPGA_DONE_READ); i--)
             {
                FPGA_CCLK_SET;
                FPGA_CCLK_CLR;
@@ -265,7 +271,7 @@ uint8_t XilinxDoConfig(uint8_t *bytes, uint16_t bCnt)
                return(XILINX_CFG_SUCCESS);
             }
             else
-               if (++n > 1000)
+               if (++n > 100)
                   xilinxState = XILINX_STREAM_STATE_FAIL;
             return(XILINX_CFG_FINISHING);
             break;
