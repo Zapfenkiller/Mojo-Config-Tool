@@ -44,23 +44,23 @@
 
 #define  FPGA_CCLK_SET     (FPGA_CCLK_PORT  |=  (1 << FPGA_CCLK_LINE))  /**< \~English Sets FPGA clock to '1' \~German Setzt FPGA-Takteingang auf '1' */
 #define  FPGA_CCLK_CLR     (FPGA_CCLK_PORT  &= ~(1 << FPGA_CCLK_LINE))  /**< \~English Clears FPGA clock to '0' \~German Setzt FPGA-Takteingang auf '0' */
-#define  FPGA_CCLK_INIT    (FPGA_CCLK_DIR   |=  (1 << FPGA_CCLK_LINE))  /**< \~English FPGA clock gets output \~German Definiert FPGA-Takteingang als µC Ausgang */
+#define  FPGA_CCLK_DRIVE   (FPGA_CCLK_DIR   |=  (1 << FPGA_CCLK_LINE))  /**< \~English FPGA clock gets output \~German Definiert FPGA-Takteingang als µC Ausgang */
 #define  FPGA_CCLK_HIZ     (FPGA_CCLK_DIR   &= ~(1 << FPGA_CCLK_LINE))  /**< \~English FPGA clock gets input \~German Definiert FPGA-Takteingang als µC Eingang */
 
 #define  FPGA_nPROG_SET    (FPGA_nPROG_PORT |=  (1 << FPGA_nPROG_LINE)) /**< \~English Sets FPGA config trigger to '1' \~German Setzt Auslöser für die FPGA-Konfiguration auf '1' */
 #define  FPGA_nPROG_CLR    (FPGA_nPROG_PORT &= ~(1 << FPGA_nPROG_LINE)) /**< \~English Clears FPGA config trigger to '0' \~German Setzt Auslöser für die FPGA-Konfiguration auf '0' */
-#define  FPGA_nPROG_INIT   (FPGA_nPROG_DIR  |=  (1 << FPGA_nPROG_LINE)) /**< \~English FPGA config trigger gets output \~German Definiert Auslöser für die FPGA-Konfiguration als µC Ausgang */
+#define  FPGA_nPROG_DRIVE  (FPGA_nPROG_DIR  |=  (1 << FPGA_nPROG_LINE)) /**< \~English FPGA config trigger gets output \~German Definiert Auslöser für die FPGA-Konfiguration als µC Ausgang */
 #define  FPGA_nPROG_HIZ    (FPGA_nPROG_DIR  &= ~(1 << FPGA_nPROG_LINE)) /**< \~English FPGA config trigger gets input \~German Definiert FPGA config trigger als µC Eingang */
 
 #define  FPGA_nINIT_SET    (FPGA_nINIT_PORT |=  (1 << FPGA_nINIT_LINE)) /**< \~English Sets FPGA /INIT to '1' \~German Setzt FPGA /INIT auf '1' */
 #define  FPGA_nINIT_CLR    (FPGA_nINIT_PORT &= ~(1 << FPGA_nINIT_LINE)) /**< \~English Clears FPGA /INIT to '0' \~German Setzt FPGA /INIT auf '0' */
-#define  FPGA_nINIT_INIT   (FPGA_nINIT_DIR  |=  (1 << FPGA_nINIT_LINE)) /**< \~English FPGA /INIT gets output \~German Definiert FPGA /INIT als µC Ausgang */
+#define  FPGA_nINIT_DRIVE  (FPGA_nINIT_DIR  |=  (1 << FPGA_nINIT_LINE)) /**< \~English FPGA /INIT gets output \~German Definiert FPGA /INIT als µC Ausgang */
 #define  FPGA_nINIT_HIZ    (FPGA_nINIT_DIR  &= ~(1 << FPGA_nINIT_LINE)) /**< \~English FPGA /INIT gets input \~German Definiert FPGA /INIT als µC Eingang */
 #define  FPGA_nINIT_READ   (FPGA_nINIT_RET  &   (1 << FPGA_nINIT_LINE)) /**< \~Reads FPGA /INIT state \~German Liest den /INIT Status des FPGA */
 
 #define  FPGA_DONE_SET     (FPGA_DONE_PORT  |=  (1 << FPGA_DONE_LINE))  /**< \~English Sets FPGA DONE to '1' \~German Setzt FPGA DONE auf '1' */
 #define  FPGA_DONE_CLR     (FPGA_DONE_PORT  &= ~(1 << FPGA_DONE_LINE))  /**< \~English Clears FPGA DONE to '0' \~German Setzt FPGA DONE auf '0' */
-#define  FPGA_DONE_INIT    (FPGA_DONE_DIR   |=  (1 << FPGA_DONE_LINE))  /**< \~English FPGA DONE gets output \~German Definiert FPGA DONE als µC Ausgang */
+#define  FPGA_DONE_DRIVE   (FPGA_DONE_DIR   |=  (1 << FPGA_DONE_LINE))  /**< \~English FPGA DONE gets output \~German Definiert FPGA DONE als µC Ausgang */
 #define  FPGA_DONE_HIZ     (FPGA_DONE_DIR   &= ~(1 << FPGA_DONE_LINE))  /**< \~English FPGA DONE gets input \~German Definiert FPGA DONE als µC Eingang */
 #define  FPGA_DONE_READ    (FPGA_DONE_RET   &   (1 << FPGA_DONE_LINE))  /**< \~Reads FPGA DONE state \~German Liest den DONE Status des FPGA */
 
@@ -119,11 +119,11 @@ void XilinxReset(void)
    // emulate open-drain to /PROG - refer to the output preselection
    // xapp176: min 300 ns of /PROGRAM low pulse => 300 ns @ 8 MHz = 3 clocks
    FPGA_nPROG_CLR;      // preselect '0' = GND
-   FPGA_nPROG_INIT;     // set GPIO as output
+   FPGA_nPROG_DRIVE;    // set GPIO as output
    FPGA_nINIT_HIZ;      // set GPIO as input
    FPGA_nINIT_SET;      // enable weak pullup
    FPGA_CCLK_CLR;       // preselect '0' = GND
-   FPGA_CCLK_INIT;      // set GPIO as output
+   FPGA_CCLK_DRIVE;     // set GPIO as output
    FPGA_nPROG_HIZ;      // set GPIO as input
    FPGA_nPROG_SET;      // enable weak pullup
 }
