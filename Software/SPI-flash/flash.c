@@ -31,35 +31,41 @@
 #include "flash.h"
 #include "Config/AppConfig.h"
 #include <avr/io.h>
+#include <util/delay.h>
 
 
-// Defines:
+// This table is partially specific to Microchip and invalid for Adesto!
+#define  CMD_WRITE_STATUS         0x01
+#define  CMD_WRITE_MEM_BYTE       0x02
+#define  CMD_READ_MEM_BYTE        0x03
+#define  CMD_WRITE_DISABLE        0x04
+#define  CMD_READ_STATUS          0x05
+#define  CMD_WRITE_ENABLE         0x06
+#define  CMD_BULK_ERASE           0x60
+#define  CMD_EBSY                 0x70
+#define  CMD_DBSY                 0x80
+#define  CMD_JEDEC_READ_ID        0x9F
+#define  CMD_AUTOINC_WRITE_WORD   0xAD
 
-#define  CMD_WRITE_COMMAND        0x01 /**< \~English  \~German  */
-#define  CMD_WRITE_MEM_BYTE       0x02 /**< \~English  \~German  */
-#define  CMD_READ_MEM_BYTE        0x03 /**< \~English  \~German  */
-#define  CMD_WRITE_DISABLE        0x04 /**< \~English  \~German  */
-#define  CMD_READ_STATUS          0x05 /**< \~English  \~German  */
-#define  CMD_WRITE_ENABLE         0x06 /**< \~English  \~German  */
-#define  CMD_BULK_ERASE           0x60 /**< \~English  \~German  */
-#define  CMD_EBSY                 0x70 /**< \~English  \~German  */
-#define  CMD_DBSY                 0x80 /**< \~English  \~German  */
-#define  CMD_JEDEC_READ_ID        0x9F /**< \~English Command to read the chip ID \~German Kommando um die Chip ID zu lesen */
-#define  CMD_AUTOINC_ENABLE       0xAD /**< \~English  \~German  */
-
-#define  ID_ADESTO                0x1F /**< \~English ID of Adesto \~German Identifikation Adesto */
-#define  ID_MICROCHIP             0xBF /**< \~English ID of Microchip \~German Identifikation Microchip */
-
-#define  DESELECT_FLASH    (FLASH_CS_PORT   |=  (1 << FLASH_CS_LINE))   /**< \~English Sets CS '1' \~German Setzt CS auf '1' */
-#define  SELECT_FLASH      (FLASH_CS_PORT   &= ~(1 << FLASH_CS_LINE))   /**< \~English Clears CS to '0' \~German Setzt CS auf '0' */
-#define  FLASH_CS_DRIVE    (FLASH_CS_DIR    |=  (1 << FLASH_CS_LINE))   /**< \~English CS gets output \~German Definiert CS als µC Ausgang */
+#define  DESELECT_FLASH    (FLASH_CS_PORT   |=  (1 << FLASH_CS_LINE))   /**< CS = '1' */
+#define  SELECT_FLASH      (FLASH_CS_PORT   &= ~(1 << FLASH_CS_LINE))   /**< CS = '0' */
+#define  FLASH_CS_DRIVE    (FLASH_CS_DIR    |=  (1 << FLASH_CS_LINE))   /**< \~English Defines CS as output to the SPI-FLASH \~German Definiert CS zum SPI-FLASH als Ausgang */
+#define  SPI_MISO_READ     (SPI_CORE_RET    &   (1 << SPI_MISO_LINE))   /**< \~English Reads SPI MISO state \~German Liest den MISO Status der SPI */
 
 
 void setupSpiAsMaster(void)
 {
    SPI_CORE_DIR = (1 << SPI_MOSI_LINE) | (1 << SPI_SCK_LINE) | (1 << SPI_SS_LINE);
-   SPSR = (1 << SPI2X);
    SPCR = (0 << SPIE) | (1 << SPE) | (0 << DORD) | (1 << MSTR) | (0 << CPOL) | (0 << CPHA) | (0 << SPR1) | (1 << SPR0);
+   SPSR = (1 << SPI2X);
+}
+
+
+void spiReleaseHw(void)
+{
+   DESELECT_FLASH;
+   SPI_CORE_DIR = 0x00;
+   SPCR = 0;
 }
 
 
@@ -72,6 +78,34 @@ uint8_t xfer(uint8_t byte)
 }
 
 
+void waitWhileBusy(void)
+{
+   SELECT_FLASH;
+   xfer(CMD_READ_STATUS);
+   while (xfer(0) & 0x01)  // Specific to Microchip
+// while !(xfer(0) & 0x80) // Specific to Adesto
+      ;
+   DESELECT_FLASH;
+}
+
+
+void waitWhileHwBusy(void)
+{
+   SELECT_FLASH;
+   _delay_us(1);
+   while (SPI_MISO_READ == 0)
+      ;
+   DESELECT_FLASH;
+}
+
+
+// ^^^^^^^^^
+// Internal
+// ---------
+// Interface
+// vvvvvvvvv
+
+
 void spiBaseInitHw(void)
 {
    DESELECT_FLASH;
@@ -81,23 +115,151 @@ void spiBaseInitHw(void)
 }
 
 
-void spiReleaseHw(void)
-{
-   DESELECT_FLASH;
-   SPI_CORE_DIR = 0x00;
-   SPCR = 0;
-}
-
-
 uint8_t getFlashChipID(void)
 {
    uint8_t retVal;
 
    setupSpiAsMaster();
+
    SELECT_FLASH;
    xfer(CMD_JEDEC_READ_ID);
    retVal = xfer(0);
    DESELECT_FLASH;
+
    spiReleaseHw();
    return(retVal);
+}
+
+
+void readFlash(volatile uint8_t* buffer, uint32_t address, uint16_t size)
+{
+   setupSpiAsMaster();
+// waitWhileBusy();
+
+   SELECT_FLASH;
+   xfer(CMD_READ_MEM_BYTE);
+   xfer(address >> 16);
+   xfer(address >> 8);
+   xfer(address);
+
+   for (uint16_t s = size; s > 0; s--)
+      *buffer++ = xfer(0);
+
+   DESELECT_FLASH;
+   spiReleaseHw();
+}
+
+
+void eraseFlash(void)
+{
+   setupSpiAsMaster();
+// waitWhileBusy();
+
+   // Disable write protection
+   SELECT_FLASH;
+   xfer(CMD_WRITE_ENABLE);
+   DESELECT_FLASH;
+   SELECT_FLASH;
+   xfer(CMD_WRITE_STATUS);
+   xfer(0);
+   DESELECT_FLASH;
+
+   // Erase entire chip
+   SELECT_FLASH;
+   xfer(CMD_WRITE_ENABLE);
+   DESELECT_FLASH;
+   SELECT_FLASH;
+   xfer(CMD_BULK_ERASE);
+   DESELECT_FLASH;
+
+   waitWhileBusy();
+   spiReleaseHw();
+}
+
+
+void writeFlash(uint8_t* buffer, uint32_t address, uint16_t size)
+{
+   if (size == 0)
+      return;
+
+   setupSpiAsMaster();
+// waitWhileBusy();
+
+   if ((address % 2) != 0)    // Word align by writing one single byte
+   {
+      SELECT_FLASH;
+      xfer(CMD_WRITE_ENABLE);
+      DESELECT_FLASH;
+
+      SELECT_FLASH;
+      xfer(CMD_WRITE_MEM_BYTE);
+      xfer(address >> 16);
+      xfer(address >> 8);
+      xfer(address);
+      xfer(*buffer++);
+      DESELECT_FLASH;
+
+      address += 1;
+      size -= 1;
+      waitWhileBusy();
+   }
+
+   if (size > 1)              // At least one pair of bytes is left
+   {
+      SELECT_FLASH;
+      xfer(CMD_EBSY);         // Enable HW BUSY indocation
+      DESELECT_FLASH;
+
+      SELECT_FLASH;
+      xfer(CMD_WRITE_ENABLE);
+      DESELECT_FLASH;
+
+      SELECT_FLASH;
+      xfer(CMD_AUTOINC_WRITE_WORD);
+      xfer(address >> 16);
+      xfer(address >> 8);
+      xfer(address);
+      xfer(*buffer++);
+      xfer(*buffer++);
+      DESELECT_FLASH;
+      size -= 2;
+      waitWhileHwBusy();
+
+      for (uint16_t c = size; c > 1; c -= 2)
+      {
+         SELECT_FLASH;
+         xfer(CMD_AUTOINC_WRITE_WORD);
+         xfer(*buffer++);
+         xfer(*buffer++);
+         DESELECT_FLASH;
+         waitWhileHwBusy();
+      }
+
+      SELECT_FLASH;
+      xfer(CMD_WRITE_DISABLE);
+      DESELECT_FLASH;
+
+      SELECT_FLASH;
+      xfer(CMD_DBSY);         // Disable HW BUSY indication
+      DESELECT_FLASH;
+   }
+
+   if (size != 0)             // It might still be just one byte left over
+   {
+      SELECT_FLASH;
+      xfer(CMD_WRITE_ENABLE);
+      DESELECT_FLASH;
+
+      SELECT_FLASH;
+      xfer(CMD_WRITE_MEM_BYTE);
+      xfer(address >> 16);
+      xfer(address >> 8);
+      xfer(address);
+      xfer(*buffer++);
+      DESELECT_FLASH;
+
+      waitWhileBusy();
+   }
+
+   spiReleaseHw();
 }

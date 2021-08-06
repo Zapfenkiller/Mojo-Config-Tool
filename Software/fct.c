@@ -94,6 +94,8 @@ const char PROGMEM needStr[]     = "\r\nFPGA configuration ready, awaiting bitst
 const char PROGMEM successStr[]  = "\r\n** FPGA successfully configured. **";
 const char PROGMEM failStr[]     = "\r\n** FPGA configuration failed! **";
 const char PROGMEM helpStr[]     = "\r\nAccepted commands:\r\n V: Volatile USB-Configuration\r\n ?: This 'manpage'\n";
+const char PROGMEM wrongStr[]    = "\r\n** Not a Microchip SPI-FLASH! **";
+
 
 uint8_t  mainMachine;
 
@@ -139,8 +141,6 @@ int main(void)
 // [ ]   'N' = Non-volatile Configuration (Bitstream vom USB ins serielle Flash)
 // [ ]   'C' = FLASH-Configure (Bitstream vom seriellen FLASH zum FPGA)
 // [ ]   'i' = Header-Info aus dem FLASH (nur Infofelder in Klarschrift)
-// [ ]   'r' = Lies Bitstream vom FLASH (Bitstream vom Flash zum USB)
-// [ ]   'h' = Lies Bitstream vom FLASH in ASCII-Hex-Darstellung
 
       switch (mainMachine)
       {
@@ -148,11 +148,13 @@ int main(void)
             if (!XilinxConfigured())
                mainMachine = MM_HELLO;
 //          else
-//             user application should run from here.
+//             user application runs from here.
             break;
          case MM_HELLO:
             fputs_P(greetStr, &USBSerialStream);
             fputs_P(helpStr, &USBSerialStream);
+            if (getFlashChipID() != ID_MICROCHIP)
+               fputs_P(wrongStr, &USBSerialStream);
             // There is intentionally no `break;` here!
          case MM_PROMPT:
             fputs_P(promptStr, &USBSerialStream);
@@ -161,18 +163,17 @@ int main(void)
          case MM_LISTEN:
             if (rCount == 1)
             {
-               CDC_Device_SendByte(&VirtualSerial_CDC_Interface, rBuffer[0]);
                mainMachine = MM_PROMPT;
+               CDC_Device_SendByte(&VirtualSerial_CDC_Interface, rBuffer[0]);
                switch (rBuffer[0])
                {
-                  case 'V':
-                     mainMachine = MM_XILINX_TRIGGER_CONFIG;
-                     break;
                   case '?':
                      mainMachine = MM_HELLO;
                      break;
-                  case 'i':
-                     fprintf(&USBSerialStream, " %2x", getFlashChipID());
+                  case 'V':
+                     mainMachine = MM_XILINX_TRIGGER_CONFIG;
+                     break;
+                  case 'i': ;
                      break;
                   case '\r':
                   case '\n':

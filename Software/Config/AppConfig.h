@@ -83,6 +83,7 @@
    // Port connections forming SPI-FLASH interface:
 
    #define  SPI_CORE_PORT     PORTB /**< \~English Port register of SPI core IOs \~German Portregister für IOs der SPI */
+   #define  SPI_CORE_RET      PINB  /**< \~English Port register of SPI core readback \~German Portregister für IOs der SPI Rücklesung */
    #define  SPI_CORE_DIR      DDRB  /**< \~English Port direction of FLASH MOSI \~German Richtungsregister für FLASH-MOSI */
    #define  SPI_MISO_LINE     3     /**< \~English Port line of FLASH MISO \~German Portleitung für FLASH-MISO */
    #define  SPI_MOSI_LINE     2     /**< \~English Port line of FLASH MOSI \~German Portleitung für FLASH-MOSI */

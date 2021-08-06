@@ -56,13 +56,13 @@
 #define  FPGA_nINIT_CLR    (FPGA_nINIT_PORT &= ~(1 << FPGA_nINIT_LINE)) /**< \~English Clears FPGA /INIT to '0' \~German Setzt FPGA /INIT auf '0' */
 #define  FPGA_nINIT_DRIVE  (FPGA_nINIT_DIR  |=  (1 << FPGA_nINIT_LINE)) /**< \~English FPGA /INIT gets output \~German Definiert FPGA /INIT als µC Ausgang */
 #define  FPGA_nINIT_HIZ    (FPGA_nINIT_DIR  &= ~(1 << FPGA_nINIT_LINE)) /**< \~English FPGA /INIT gets input \~German Definiert FPGA /INIT als µC Eingang */
-#define  FPGA_nINIT_READ   (FPGA_nINIT_RET  &   (1 << FPGA_nINIT_LINE)) /**< \~Reads FPGA /INIT state \~German Liest den /INIT Status des FPGA */
+#define  FPGA_nINIT_READ   (FPGA_nINIT_RET  &   (1 << FPGA_nINIT_LINE)) /**< \~English Reads FPGA /INIT state \~German Liest den /INIT Status des FPGA */
 
 #define  FPGA_DONE_SET     (FPGA_DONE_PORT  |=  (1 << FPGA_DONE_LINE))  /**< \~English Sets FPGA DONE to '1' \~German Setzt FPGA DONE auf '1' */
 #define  FPGA_DONE_CLR     (FPGA_DONE_PORT  &= ~(1 << FPGA_DONE_LINE))  /**< \~English Clears FPGA DONE to '0' \~German Setzt FPGA DONE auf '0' */
 #define  FPGA_DONE_DRIVE   (FPGA_DONE_DIR   |=  (1 << FPGA_DONE_LINE))  /**< \~English FPGA DONE gets output \~German Definiert FPGA DONE als µC Ausgang */
 #define  FPGA_DONE_HIZ     (FPGA_DONE_DIR   &= ~(1 << FPGA_DONE_LINE))  /**< \~English FPGA DONE gets input \~German Definiert FPGA DONE als µC Eingang */
-#define  FPGA_DONE_READ    (FPGA_DONE_RET   &   (1 << FPGA_DONE_LINE))  /**< \~Reads FPGA DONE state \~German Liest den DONE Status des FPGA */
+#define  FPGA_DONE_READ    (FPGA_DONE_RET   &   (1 << FPGA_DONE_LINE))  /**< \~English Reads FPGA DONE state \~German Liest den DONE Status des FPGA */
 
 #define  XILINX_STREAM_STATE_STANDBY    0    /**< \~English Waiting to get startet. \~German Warten auf das Startsignal. */
 #define  XILINX_STREAM_STATE_HEADER     1    /**< \~English Scanning the header. \~German Der Header wird gelesen. */
