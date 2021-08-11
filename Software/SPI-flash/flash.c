@@ -56,7 +56,7 @@
 void setupSpiAsMaster(void)
 {
    SPI_CORE_DIR = (1 << SPI_MOSI_LINE) | (1 << SPI_SCK_LINE) | (1 << SPI_SS_LINE);
-   SPCR = (0 << SPIE) | (1 << SPE) | (0 << DORD) | (1 << MSTR) | (0 << CPOL) | (0 << CPHA) | (0 << SPR1) | (1 << SPR0);
+   SPCR = (0 << SPIE) | (1 << SPE) | (0 << DORD) | (1 << MSTR) | (0 << CPOL) | (0 << CPHA) | (0 << SPR1) | (0 << SPR0);
    SPSR = (1 << SPI2X);
 }
 
@@ -82,8 +82,7 @@ void waitWhileBusy(void)
 {
    SELECT_FLASH;
    xfer(CMD_READ_STATUS);
-   while (xfer(0) & 0x01)  // Specific to Microchip
-// while !(xfer(0) & 0x80) // Specific to Adesto
+   while (xfer(0) & 0x01)
       ;
    DESELECT_FLASH;
 }
@@ -134,7 +133,6 @@ uint8_t getFlashChipID(void)
 void readFlash(volatile uint8_t* buffer, uint32_t address, uint16_t size)
 {
    setupSpiAsMaster();
-// waitWhileBusy();
 
    SELECT_FLASH;
    xfer(CMD_READ_MEM_BYTE);
@@ -153,12 +151,12 @@ void readFlash(volatile uint8_t* buffer, uint32_t address, uint16_t size)
 void eraseFlash(void)
 {
    setupSpiAsMaster();
-// waitWhileBusy();
 
    // Disable write protection
    SELECT_FLASH;
    xfer(CMD_WRITE_ENABLE);
    DESELECT_FLASH;
+
    SELECT_FLASH;
    xfer(CMD_WRITE_STATUS);
    xfer(0);
@@ -168,6 +166,7 @@ void eraseFlash(void)
    SELECT_FLASH;
    xfer(CMD_WRITE_ENABLE);
    DESELECT_FLASH;
+
    SELECT_FLASH;
    xfer(CMD_BULK_ERASE);
    DESELECT_FLASH;
@@ -183,7 +182,6 @@ void writeFlash(uint8_t* buffer, uint32_t address, uint16_t size)
       return;
 
    setupSpiAsMaster();
-// waitWhileBusy();
 
    if ((address % 2) != 0)    // Word align by writing one single byte
    {
@@ -198,7 +196,6 @@ void writeFlash(uint8_t* buffer, uint32_t address, uint16_t size)
       xfer(address);
       xfer(*buffer++);
       DESELECT_FLASH;
-
       address += 1;
       size -= 1;
       waitWhileBusy();
@@ -207,7 +204,7 @@ void writeFlash(uint8_t* buffer, uint32_t address, uint16_t size)
    if (size > 1)              // At least one pair of bytes is left
    {
       SELECT_FLASH;
-      xfer(CMD_EBSY);         // Enable HW BUSY indocation
+      xfer(CMD_EBSY);         // Enable HW BUSY indication
       DESELECT_FLASH;
 
       SELECT_FLASH;
@@ -222,16 +219,19 @@ void writeFlash(uint8_t* buffer, uint32_t address, uint16_t size)
       xfer(*buffer++);
       xfer(*buffer++);
       DESELECT_FLASH;
+      address += 2;
       size -= 2;
       waitWhileHwBusy();
 
-      for (uint16_t c = size; c > 1; c -= 2)
+      while (size > 1)
       {
          SELECT_FLASH;
          xfer(CMD_AUTOINC_WRITE_WORD);
          xfer(*buffer++);
          xfer(*buffer++);
          DESELECT_FLASH;
+         address += 2;
+         size -= 2;
          waitWhileHwBusy();
       }
 
@@ -257,7 +257,6 @@ void writeFlash(uint8_t* buffer, uint32_t address, uint16_t size)
       xfer(address);
       xfer(*buffer++);
       DESELECT_FLASH;
-
       waitWhileBusy();
    }
 
