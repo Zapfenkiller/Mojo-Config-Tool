@@ -41,19 +41,9 @@
    #include "Descriptors.h"
 
 
-   // Defines:
-
-   #define  MM_APPLICATION_MODE         0
-   #define  MM_HELLO                    1
-   #define  MM_PROMPT                   2
-   #define  MM_LISTEN                   3
-   #define  MM_XILINX_TRIGGER_CONFIG    4
-   #define  MM_XILINX_CONFIGURE         5
-
-
    // Function Prototypes:
 
-   int   main(void);
+   int main(void);
    /**<
     * \~English
     *
@@ -115,6 +105,8 @@
     *  CDC class driver callback when the line encoding shall change.
     *  A baudrate change down to 1200 starts the bootloader!
     *  https://blog.fsck.com/2014/08/how-to-reboot-an-arduino-leonardo-micro-into-the-bootloader.html
+    *  A baudrate change to 2400 performs a hardwarte reset into the FPGA loader
+    *  application.
     *  \param[in] CDCInterfaceInfo  Pointer to the CDC class interface
     *             configuration structure being referenced
     *

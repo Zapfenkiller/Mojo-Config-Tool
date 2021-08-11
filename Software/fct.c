@@ -39,6 +39,7 @@
 #include <avr/pgmspace.h>
 #include <avr/power.h>
 #include <avr/wdt.h>
+#include <util/delay.h>
 
 
 /**
@@ -87,20 +88,73 @@ USB_ClassInfo_CDC_Device_t VirtualSerial_CDC_Interface =
 static FILE USBSerialStream;
 
 
-const char PROGMEM greetStr[]    = "\r\n\n\n* Spartan Configurator *\n\r(c) 2021, René Trapp\n";
+/**
+ *  \~English
+ *   Some clever code to get the amount of currently available heap space is
+ *   found at https://www.avrfreaks.net/forum/free-ram-available
+ *   This information is needed to get optimum buffer size.
+ *   The code works fine, but has also one drawback: It causes the compiler to
+ *   assert
+ *   \code fct.c:114: warning: function returns address of local variable \endcode
+ *   This particular warning can be safely ignored.
+ *
+ *  \~German
+ *   Siehe https://www.avrfreaks.net/forum/free-ram-available
+ *   Berechnet den aktuell freien Platz im Heap. Wird benötigt um die optimale
+ *   Puffergröße zu ermitteln.
+ *   Der Code funktioniert, hat aber eine Nebenwirkung: Er veranlasst den
+ *   Compiler zur Beschwerde
+ *   \code fct.c:114: warning: function returns address of local variable \endcode
+ *   Diese spezielle Warnung kann getrost ignoriert werden.
+ */
+int availRAM(void)
+{
+   extern int __heap_start, *__brkval;
+   int v;
+   return ((int) &v - (__brkval == 0 ? (int) &__heap_start: (int) __brkval));
+}
+
+
+#define  MM_APPLICATION_MODE         0
+#define  MM_HELLO                    1
+#define  MM_FLASH_INFO               2
+#define  MM_PROMPT                   3
+#define  MM_LISTEN                   4
+#define  MM_XILINX_TRIGGER_CONFIG    5
+#define  MM_XILINX_CONFIGURE         6
+#define  MM_STORE_BITSTREAM_INTRO    7
+#define  MM_STORE_BITSTREAM_BODY     8
+#define  MM_VERIFY                   9
+
+
+#define  CFG_SRC_USB                 'u'
+#define  CFG_SRC_SPI                 's'
+
+
+const char PROGMEM greetStr[]    = "\r\n\n* Mojo OS *\r\n" \
+                                   "(c) 2021, R. Trapp\n";
 const char PROGMEM promptStr[]   = "\r\n> ";
-const char PROGMEM unknownStr[]  = " <-?";
-const char PROGMEM needStr[]     = "\r\nFPGA configuration ready, awaiting bitstream (.bit) file.\r\n";
-const char PROGMEM successStr[]  = "\r\n** FPGA successfully configured. **";
-const char PROGMEM failStr[]     = "\r\n** FPGA configuration failed! **";
-const char PROGMEM helpStr[]     = "\r\nAccepted commands:\r\n V: Volatile USB-Configuration\r\n ?: This 'manpage'\n";
-const char PROGMEM wrongStr[]    = "\r\n** Not a Microchip SPI-FLASH! **";
+const char PROGMEM unknownStr[]  = " <- ?";
+const char PROGMEM needStr[]     = "\r\nAwaiting data\r";
+const char PROGMEM successStr[]  = "FPGA config success";
+const char PROGMEM failStr[]     = "FPGA config FAIL";
+const char PROGMEM emptyStr[]    = "\r\nConfig FLASH is empty";
+const char PROGMEM wrongStr[]    = "\r\nNot a Microchip FLASH";
+const char PROGMEM invalidStr[]  = "\r\nInvalid bitstream";
+const char PROGMEM helpStr[]     = "\r\nCommands:\r\n" \
+                                   " V: Volatile Config\r\n" \
+                                   " W: Write to FLASH\r\n" \
+                                   " C: Config from FLASH\r\n" \
+                                   " i: Info about FLASH\r\n" \
+                                   " ?: Help";
 
 
 uint8_t  mainMachine;
+uint8_t  cfgSrc = 0;
+uint32_t flashAddr = 0;
+uint32_t fileSize = 0;
 
-uint8_t  rBuffer[CDC_TXRX_EPSIZE]; // Minimum one EP size, more when SPI-FLASH is getting used.
-uint16_t rCount;
+uint8_t  equal = 0;
 
 
 int main(void)
@@ -113,107 +167,258 @@ int main(void)
    wdt_disable();
 
    clock_prescale_set(clock_div_1);
-   XilinxInitConfig();
+   XilinxPreparePorts();
    spiBaseInitHw();
 
-   mainMachine = MM_APPLICATION_MODE;
-
-   /* Create a regular character stream for the interface so that it can be used with the stdio.h functions */
+   // Create a regular character stream for the interface so that it can be used with the stdio.h functions
    CDC_Device_CreateStream(&VirtualSerial_CDC_Interface, &USBSerialStream);
+
+   mainMachine = MM_APPLICATION_MODE;
 
    USB_Init();
    GlobalInterruptEnable();
 
    for (;;)
    {
-
-      // Check how many bytes are ready, move EP content into buffer.
-      rCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
-      if (rCount)
-      {
-         // Free the EP as fast as possible for the next USB packet.
-         for (uint8_t n = 0; n < rCount; n++)
-            rBuffer[n] = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
-      }
-
-// [x]   '?' = Hilfetext
-// [x]   'V' = Volatile USB-Configuration (Bitstream vom USB zum FPGA)
-// [ ]   'N' = Non-volatile Configuration (Bitstream vom USB ins serielle Flash)
-// [ ]   'C' = FLASH-Configure (Bitstream vom seriellen FLASH zum FPGA)
-// [ ]   'i' = Header-Info aus dem FLASH (nur Infofelder in Klarschrift)
+      uint8_t aBuffer[4*CDC_TXRX_EPSIZE];
 
       switch (mainMachine)
       {
          case MM_APPLICATION_MODE:
-            if (!XilinxConfigured())
-               mainMachine = MM_HELLO;
-//          else
+            if (XilinxConfigured())
 //             user application runs from here.
+               ;
+            else
+            {
+               _delay_ms(500);
+               mainMachine = MM_HELLO;
+            }
             break;
          case MM_HELLO:
             fputs_P(greetStr, &USBSerialStream);
             fputs_P(helpStr, &USBSerialStream);
-            if (getFlashChipID() != ID_MICROCHIP)
-               fputs_P(wrongStr, &USBSerialStream);
+            // There is intentionally no `break;` here!
+         case MM_FLASH_INFO: ;
+            {
+               uint8_t  buffer[200]; // Should do, usually header is around 100 bytes.
+               uint8_t* ptr = 0;
+
+               if (getFlashChipID() != ID_MICROCHIP)
+                  fputs_P(wrongStr, &USBSerialStream);
+               readFlash(buffer, 0, sizeof(buffer));
+               ptr = XilinxGetHeaderField(buffer, XILINX_FIELD_DESIGN);
+               if (ptr != 0)
+                  fprintf_P(&USBSerialStream, PSTR("\r\n%s"), ptr);
+               else
+                  fputs_P(emptyStr, &USBSerialStream);
+            }
             // There is intentionally no `break;` here!
          case MM_PROMPT:
             fputs_P(promptStr, &USBSerialStream);
             mainMachine = MM_LISTEN;
             // There is intentionally no `break;` here!
          case MM_LISTEN:
-            if (rCount == 1)
             {
-               mainMachine = MM_PROMPT;
-               CDC_Device_SendByte(&VirtualSerial_CDC_Interface, rBuffer[0]);
-               switch (rBuffer[0])
+               uint8_t rxCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
+               if (rxCount == 1)
                {
-                  case '?':
-                     mainMachine = MM_HELLO;
-                     break;
-                  case 'V':
-                     mainMachine = MM_XILINX_TRIGGER_CONFIG;
-                     break;
-                  case 'i': ;
-                     break;
-                  case '\r':
-                  case '\n':
-                     break;
-                  default:
-                     fputs_P(unknownStr, &USBSerialStream);
+                  mainMachine = MM_PROMPT;
+                  uint8_t cmdChar = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
+                  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, cmdChar);
+                  switch (cmdChar)
+                  {
+                     case '\r':
+                     case '\n':
+                        break;
+                     case '?':   // 'manpage'
+                        mainMachine = MM_HELLO;
+                        break;
+                     case 'i':   // return bitstream header info from FLASH
+                        mainMachine = MM_FLASH_INFO;
+                        break;
+                     case 'V':   // feed bitstream volatile into FPGA
+                        cfgSrc = CFG_SRC_USB;
+                        fputs_P(needStr, &USBSerialStream);
+                        mainMachine = MM_XILINX_TRIGGER_CONFIG;
+                        break;
+                     case 'W':   // store bitstream non-volatile into SPI-FLASH
+                        eraseFlash();
+                        fputs_P(needStr, &USBSerialStream);
+                        flashAddr = 0;
+                        mainMachine = MM_STORE_BITSTREAM_INTRO;
+                        break;
+                     case 'C':   // configure from recent SPI-FLASH content
+                        cfgSrc = CFG_SRC_SPI;
+                        fputs_P(PSTR("\r\n"), &USBSerialStream);
+                        mainMachine = MM_XILINX_TRIGGER_CONFIG;
+                        break;
+
+/*
+case 'v':   // verify FLASH data
+   fputs_P(needStr, &USBSerialStream);
+   flashAddr = 0;
+   equal = 0xFF;
+   mainMachine = MM_VERIFY;
+   break;
+case 'e':
+   eraseFlash();
+   break;
+case '0':
+   flashAddr = 0;
+   break;
+case '1':
+   flashAddr = 340512;
+   break;
+case ' ':
+   ;
+   uint8_t storage[16];
+   for (uint8_t i = 16; i > 0; i--)
+   {
+      readFlash(storage, flashAddr, sizeof(storage));
+      fprintf_P(&USBSerialStream, PSTR("\r\n%8lx  "), flashAddr);
+      for (int n = 0; n < sizeof(storage); n++)
+         fprintf_P(&USBSerialStream, PSTR(" %2x"), storage[n]);
+      flashAddr += sizeof(storage);
+   }
+   break;
+*/
+                     default:
+                        fputs_P(unknownStr, &USBSerialStream);
+                  }
                }
+               else
+                  for (uint8_t n = rxCount; n > 0; n--)
+                     CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
             }
             break;
          case MM_XILINX_TRIGGER_CONFIG:
             XilinxStartConfig();
-            fputs_P(needStr, &USBSerialStream);
             mainMachine = MM_XILINX_CONFIGURE;
+            flashAddr = 0;
             break;
-         case MM_XILINX_CONFIGURE:
-            switch (XilinxDoConfig(rBuffer, rCount))
+         case MM_XILINX_CONFIGURE: ;
             {
-               case XILINX_CFG_ONGOING:
-                  if (rCount > 0)
-                  {
-                     fprintf(&USBSerialStream, "\r%7lu /", XilinxBitstreamLeft());
-                     fprintf(&USBSerialStream, "%7lu ", XilinxBitstreamSize());
-                  }
-                  break;
-               case XILINX_CFG_SUCCESS:
-                  fputs_P(successStr, &USBSerialStream);
-                  mainMachine = MM_APPLICATION_MODE;
-                  break;
-               case XILINX_CFG_FAIL:
-                  fputs_P(failStr, &USBSerialStream);
-                  mainMachine = MM_PROMPT;
-                  break;
-               default:
-                  ;
+//             uint8_t  rxBuffer[availRAM() - 400]; // at least CDC_TXRX_EPSIZE
+               uint8_t  rxBuffer[CDC_TXRX_EPSIZE]; // at least CDC_TXRX_EPSIZE
+               uint16_t rxCount = 0;
+               switch (cfgSrc)
+               {
+                  case CFG_SRC_USB:
+                     // Check how many bytes are ready, move EP content into buffer.
+                     rxCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
+                     if (rxCount)
+                     {
+                        // Free the EP as fast as possible for the next USB packet
+                        // to drop in in the background. Hope this is how LUFA
+                        // works otherwise this is waste.
+                        for (uint8_t n = 0; n < rxCount; n++)
+                           rxBuffer[n] = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
+                     }
+                     break;
+                  case CFG_SRC_SPI:
+                     rxCount = sizeof(rxBuffer);
+//fprintf_P(&USBSerialStream, PSTR("\r\n%p, %4x\r\n"), rxBuffer, rxCount);
+                     readFlash(rxBuffer, flashAddr, rxCount);
+//fprintf_P(&USBSerialStream, PSTR("%6lx  "), flashAddr);
+//for (int n = 0; n < rxCount; n++)
+//   fprintf_P(&USBSerialStream, PSTR(" %2x"), rxBuffer[n]);
+                     flashAddr += (uint32_t)rxCount;
+// bis hierher kommen nachweislich die richtigen Daten aus dem FLASH.
+// der gleiche Ärger wie unten mit den bootkey pointern bis sie volatile wurden?
+                     break;
+                  default:
+                     mainMachine = MM_PROMPT;
+               }
+               switch (XilinxDoConfig(rxBuffer, rxCount))
+               {
+                  case XILINX_CFG_SUCCESS:
+                     fputs_P(successStr, &USBSerialStream);
+                     mainMachine = MM_APPLICATION_MODE;
+                     break;
+                  case XILINX_CFG_FAIL:
+                     fputs_P(failStr, &USBSerialStream);
+                     if (cfgSrc == CFG_SRC_SPI)
+                        mainMachine = MM_FLASH_INFO;
+                     else
+                        mainMachine = MM_PROMPT;
+                     break;
+                  default:
+                     ;
+               }
             }
             break;
+         case MM_STORE_BITSTREAM_INTRO: ;
+            {
+               uint8_t* ptrToSize = 0;
+               uint16_t rxCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
+               if (rxCount)
+               {
+                  for (uint8_t n = 0; n < rxCount; n++)
+                     aBuffer[flashAddr++] = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
+               }
+               if (flashAddr > (sizeof(aBuffer) - CDC_TXRX_EPSIZE))
+               {
+                  fileSize = XilinxGetSize(aBuffer);
+                  if (fileSize > 0)
+                  {
+                     ptrToSize = XilinxGetHeaderField(aBuffer, XILINX_FIELD_DATA);
+                     fileSize += (uint32_t)(ptrToSize - aBuffer);
+                     writeFlash(aBuffer, 0, (uint16_t) flashAddr);
+                     mainMachine = MM_STORE_BITSTREAM_BODY;
+                  }
+                  else
+                  {
+                     fputs_P(invalidStr, &USBSerialStream);
+                     mainMachine = MM_PROMPT;
+                  }
+               }
+            }
+            break;
+         case MM_STORE_BITSTREAM_BODY: ;
+            {
+               uint8_t  rxBuffer[CDC_TXRX_EPSIZE];
+               uint16_t rxCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
+               if (rxCount > 0)
+               {
+                  for (uint8_t n = 0; n < rxCount; n++)
+                     rxBuffer[n] = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
+                  writeFlash(rxBuffer, flashAddr, rxCount);
+                  flashAddr += rxCount;
+               }
+               if (flashAddr >= fileSize)
+               {
+                  cfgSrc = CFG_SRC_SPI;
+                  mainMachine = MM_XILINX_TRIGGER_CONFIG;
+               }
+            }
+            break;
+/*
+case MM_VERIFY:
+   {
+      uint8_t  flBuffer[CDC_TXRX_EPSIZE];
+      uint8_t  rxBuffer[CDC_TXRX_EPSIZE];
+      uint16_t rxCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
+      if (rxCount > 0)
+      {
+         for (uint8_t n = 0; n < rxCount; n++)
+            rxBuffer[n] = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
+         readFlash(flBuffer, flashAddr, rxCount);
+         for (uint16_t n = 0; n < rxCount; n++)
+         {
+            if (rxBuffer[n] != flBuffer[n])
+            {
+               fprintf_P(&USBSerialStream, PSTR("%6lx: spi %2x <> usb %2x\r\n"), flashAddr, flBuffer[n], rxBuffer[n]);
+               equal = 0;
+            }
+            flashAddr++;
+         }
+      }
+   }
+   break;
+*/
          default:
             ;
       }
-
       CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
       USB_USBTask();
 
