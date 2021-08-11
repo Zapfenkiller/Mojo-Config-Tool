@@ -49,10 +49,16 @@
    #define  XILINX_CFG_SUCCESS             3    /**< \~English The FPGA is configured. \~German Die FPGA-Konfiguration ist abgeschlossen. */
    #define  XILINX_CFG_FAIL              255    /**< \~English The FPGA configuration got aborted. \~German Die FPGA-Konfiguration wurde abgebrochen. */
 
+   #define  XILINX_FIELD_DESIGN          'a'
+   #define  XILINX_FIELD_DEVICE          'b'
+   #define  XILINX_FIELD_DATE            'c'
+   #define  XILINX_FIELD_TIME            'd'
+   #define  XILINX_FIELD_DATA            'e'
+
 
    // Function Prototypes:
 
-   void XilinxInitConfig(void);
+   void XilinxPreparePorts(void);
    /**<
     * \~English
     *  initializes the microcontroller GPIO hardware to regular (non-critical)
@@ -145,6 +151,30 @@
     * \~German
     *  liefert die Anzahl der Bytes des gesamten Bitstreams.
     *  @return Anzahl.
+    */
+
+
+   uint8_t* XilinxGetHeaderField(uint8_t *buffer, uint8_t FieldID);
+   /**<
+    * \~English
+    *  
+    *  @return 
+    *
+    * \~German
+    *  
+    *  @return 
+    */
+
+
+   uint32_t XilinxGetSize(uint8_t *buffer);
+   /**<
+    * \~English
+    *  
+    *  @return 
+    *
+    * \~German
+    *  
+    *  @return 
     */
 
 
