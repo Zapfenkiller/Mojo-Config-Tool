@@ -51,10 +51,17 @@
 #define  SELECT_FLASH      (FLASH_CS_PORT   &= ~(1 << FLASH_CS_LINE))   /**< CS = '0' */
 #define  FLASH_CS_DRIVE    (FLASH_CS_DIR    |=  (1 << FLASH_CS_LINE))   /**< \~English Defines CS as output to the SPI-FLASH \~German Definiert CS zum SPI-FLASH als Ausgang */
 #define  SPI_MISO_READ     (SPI_CORE_RET    &   (1 << SPI_MISO_LINE))   /**< \~English Reads SPI MISO state \~German Liest den MISO Status der SPI */
+#define  SPI_SS_SET        (SPI_CORE_PORT   |=  (1 << SPI_SS_LINE))     /**< SS = '1' */
 
 
 void setupSpiAsMaster(void)
 {
+   SPI_SS_SET; // In any case set to '1' before reversing the direction to
+               // output! If not done any '0' reading still is stored somewhere
+               // inside the SPI logic and immediately turns off the SPI master
+               // when SPI gets enabled. No hint to this in any ATMEL datasheet!
+               // You have to come up with that first!
+               // A very big :( for this explicit lack of information.
    SPI_CORE_DIR = (1 << SPI_MOSI_LINE) | (1 << SPI_SCK_LINE) | (1 << SPI_SS_LINE);
    SPCR = (0 << SPIE) | (1 << SPE) | (0 << DORD) | (1 << MSTR) | (0 << CPOL) | (0 << CPHA) | (0 << SPR1) | (0 << SPR0);
    SPSR = (1 << SPI2X);
@@ -64,7 +71,7 @@ void setupSpiAsMaster(void)
 void spiReleaseHw(void)
 {
    DESELECT_FLASH;
-   SPI_CORE_DIR = 0x00;
+   SPI_CORE_DIR = 0;
    SPCR = 0;
 }
 
@@ -109,8 +116,6 @@ void spiBaseInitHw(void)
 {
    DESELECT_FLASH;
    FLASH_CS_DRIVE;
-   SPI_CORE_DIR = 0x00;
-   SPI_CORE_PORT = 0xFF;
 }
 
 
