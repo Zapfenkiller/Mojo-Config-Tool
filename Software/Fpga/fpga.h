@@ -154,7 +154,7 @@
     */
 
 
-   uint8_t* XilinxGetHeaderField(uint8_t *buffer, uint8_t FieldID);
+   char* XilinxGetHeaderField(uint8_t *buffer, uint8_t FieldID);
    /**<
     * \~English
     *  

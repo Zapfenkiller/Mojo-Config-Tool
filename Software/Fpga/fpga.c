@@ -122,14 +122,14 @@ void XilinxReset(void)
    // xapp176: min 300 ns of nPROG low pulse
    // ug380:   min 500 ns of nPROG low pulse
    FPGA_nPROG_CLR;            // reset the FPGA
-   _delay_us(1);              // allow the FPGA to respond
+   _delay_us(1);              // allow the FPGA to respond, 1000 ns
    FPGA_CCLK_CLR;             // preselect '0' = GND
    FPGA_CCLK_DRIVE;           // set GPIO as output
    FPGA_nPROG_SET;            // release reset to FPGA
    while (!FPGA_nINIT_READ)   // wait until FPGA is ready for configuration
       ;
-   // xapp176: no further delay required (but introduced due to following code)
-   // ug380: pullup on INIT_B hosted by FPGA
+   // xapp176: no further delay required
+   // ug380: pullup on INIT_B hosted by FPGA already
 }
 
 
@@ -228,18 +228,21 @@ uint8_t XilinxDoConfig(uint8_t *bytes, uint16_t bCnt)
             XilinxReset();
             byteCount = streamSize;
             xilinxState = XILINX_STREAM_STATE_BODY;
+            // There is intentionally no `break;` here!
          case XILINX_STREAM_STATE_BODY:
             FPGA_DATA_DRIVE;       // set GPIOs as output
             // ug380, xapp502, xapp176
             for (n = bCnt; (n > 0) && (byteCount > 0); n--)
             {
                FPGA_DATA_PORT = *bytes++;
+//FPGA_DATA_PORT = *bytes;
+//*bytes = PINB; // wrong data applies here (ATmega32U4 datasheet, p70)
+//*bytes = PINB; // now get the right readback
+//bytes++;
                FPGA_CCLK_SET;
                byteCount--;
                FPGA_CCLK_CLR;
             }
-            FPGA_DATA_PORT = 0xFF;
-            FPGA_DATA_HIZ;
             if (byteCount == 0)
             {
                xilinxState = XILINX_STREAM_STATE_STARTUP;
@@ -249,11 +252,12 @@ uint8_t XilinxDoConfig(uint8_t *bytes, uint16_t bCnt)
                return(XILINX_CFG_ONGOING);
             break;
          case XILINX_STREAM_STATE_STARTUP:
-            // ug380
-            FPGA_DATA_HIZ;       // GPIOs just as pull-ups
+            // ug380 p. 90
+            FPGA_DATA_HIZ;       // GPIOs just as pull-ups to "drive" '1'
             FPGA_DATA_PORT = 0xFF;
             _delay_us(3);        // allow the lines are pulled-up to '1'
-            // ug380 - in case some PLLs need to lock, max. 1 ms req'd
+            // in case some PLLs need to lock
+            // ds162 max. 1 ms req'd
             for (uint16_t i = 20000; (i > 0) && !(FPGA_DONE_READ); i--)
             {
                FPGA_CCLK_SET;
@@ -307,7 +311,7 @@ uint32_t XilinxBitstreamSize(void)
 }
 
 
-uint8_t* XilinxGetHeaderField(uint8_t *buffer, uint8_t FieldID)
+char* XilinxGetHeaderField(uint8_t *buffer, uint8_t FieldID)
 {
    static const uint8_t PROGMEM preamble[] = {0x00, 0x09, 0x0f, 0xf0, 0x0f, 0xf0, 0x0f, 0xf0, 0x0f, 0xf0, 0x00, 0x00, 0x01};
 
@@ -325,7 +329,7 @@ uint8_t* XilinxGetHeaderField(uint8_t *buffer, uint8_t FieldID)
       {
          if (FieldID != XILINX_FIELD_DATA)
             buffer += 2;
-         return(buffer);
+         return((char*)buffer);
       }
       ofs = *buffer++;
       ofs = (ofs << 8) | *buffer++;
