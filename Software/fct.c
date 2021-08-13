@@ -23,14 +23,15 @@
  *
  *  \~English
  *   My approach to use any terminal to perform the base activites, configure
- *   the FPGA from a bitstream file (.bit) and allow for topspeed data exchane
- *   of data with the FPGA application logic by a dedicated parallel interface.
+ *   the FPGA from a bitstream file (.bit) and allow for topspeed exchange of
+ *   data with the FPGA application logic by a dedicated parallel interface.
  *
  *  \~German
- *   Mein Ansatz um ein beliebiges Temrinalprogramm für die fundamentalen
+ *   Mein Ansatz um ein beliebiges Terminalprogramm für die fundamentalen
  *   Aktivitäten zu nutzen, das FPGA aus einer Bitstream-Datei (.bit) zu
  *   konfigurieren und durch eine angepasste parallele Schnittstelle die
- *   schnellste Datenübertragung von und zur Anwendungslogik im FPGA zu erzielen.
+ *   schnellste Datenübertragung von und zur Anwendungslogik im FPGA zu
+ *   erzielen.
  */
 
 
@@ -111,7 +112,7 @@ static FILE USBSerialStream;
  *   This information is needed to get optimum buffer size.
  *   The code works fine, but has also two drawbacks: It causes the compiler to
  *   assert
- *   \code fct.c:119: warning: function returns address of local variable \endcode
+ *   \code fct.c:134: warning: function returns address of local variable \endcode
  *   This particular warning can be safely ignored.
  *   Secondly it causes the code to get roughly 510 bytes larger if used.
  *
@@ -121,7 +122,7 @@ static FILE USBSerialStream;
  *   Puffergröße zu ermitteln.
  *   Der Code funktioniert, hat aber zwei Nebenwirkungen: Er veranlasst den
  *   Compiler zur Beschwerde
- *   \code fct.c:119: warning: function returns address of local variable \endcode
+ *   \code fct.c:134: warning: function returns address of local variable \endcode
  *   Diese spezielle Warnung kann getrost ignoriert werden.
  *   Zweitens wird das Kompilat rund 510 Bytes größer wenn die Funktion benutzt
  *   wird.
@@ -148,17 +149,17 @@ int availRAM(void)
 #define  MM_VERIFY_FLASH            11
 
 
-#define  CFG_SRC_USB                 'u'
-#define  CFG_SRC_SPI                 's'
+#define  CFG_SRC_USB               'u'
+#define  CFG_SRC_SPI               's'
 
 
 const char PROGMEM greetStr[]    = "\r\n\n* Mojo OS *\r\n" \
                                    "(c) 2021, R. Trapp\n";
 const char PROGMEM promptStr[]   = "\r\n> ";
 const char PROGMEM unknownStr[]  = " <- ?";
-const char PROGMEM needStr[]     = "\r\nAwaiting data\r";
-const char PROGMEM successStr[]  = "FPGA config success";
-const char PROGMEM failStr[]     = "FPGA config FAIL";
+const char PROGMEM needStr[]     = "\r\nAwaiting data";
+const char PROGMEM successStr[]  = "\r\nSuccess";
+const char PROGMEM failStr[]     = "\r\nFAIL";
 const char PROGMEM emptyStr[]    = "\r\nConfig FLASH is empty";
 const char PROGMEM wrongStr[]    = "\r\nNot a Microchip FLASH";
 const char PROGMEM invalidStr[]  = "\r\nInvalid bitstream";
@@ -175,12 +176,6 @@ uint8_t  mainMachine;
 
 int main(void)
 {
-      uint8_t  aBuffer[4*CDC_TXRX_EPSIZE];
-      uint8_t  cfgSrc = 0;
-      uint32_t flashAddr = 0;
-      uint32_t fileSize = 0;
-//    uint8_t  equal = 0;
-
    // Disable watchdog if enabled by bootloader/fuses, only works if WDRF is
    // cleared. Ensures some board response, even if BOOTRST is unprogrammed!
    // Otherwise the board will look bricked until a HW-RESET.
@@ -201,6 +196,12 @@ int main(void)
    USB_Init();
    GlobalInterruptEnable();
 
+   uint8_t  aBuffer[4*CDC_TXRX_EPSIZE];
+   uint8_t  cfgSrc = 0;
+   uint32_t flashAddr = 0;
+   uint32_t fileSize = 0;
+// uint8_t  equal = 0;
+
    for (;;)
    {
 
@@ -212,7 +213,11 @@ int main(void)
                ;
             else
             {
-               _delay_ms(500);
+// HIER AUFRÄUMEN!
+//             cfgSrc = CFG_SRC_SPI;
+//             mainMachine = MM_XILINX_TRIGGER_CONFIG;
+
+//             _delay_ms(500);
                mainMachine = MM_HELLO;
             }
             break;
@@ -466,7 +471,6 @@ int main(void)
 
 void EVENT_USB_Device_Connect(void)
 {
-   mainMachine = MM_HELLO;
 }
 
 
@@ -522,7 +526,9 @@ void EVENT_CDC_Device_LineEncodingChanged(USB_ClassInfo_CDC_Device_t *const CDCI
          for (;;);
          break;
       default:
-         // No particular action necessary.
+         // On first connectin TeraTerm sets the baudrate. Assume others will do
+         // it the same way and thus we get the greeting onto the screen.
+         mainMachine = MM_HELLO;
          ;
    }
 }
