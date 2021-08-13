@@ -19,11 +19,18 @@
 
 
 /** @file
+ *   @brief Mojo Operating System ("Mojo OS").
+ *
  *  \~English
- *   @brief FPGA Configuration Tool core.
+ *   My approach to use any terminal to perform the base activites, configure
+ *   the FPGA from a bitstream file (.bit) and allow for topspeed data exchane
+ *   of data with the FPGA application logic by a dedicated parallel interface.
  *
  *  \~German
- *   @brief Das FPGA-Configuration-Tool.
+ *   Mein Ansatz um ein beliebiges Temrinalprogramm für die fundamentalen
+ *   Aktivitäten zu nutzen, das FPGA aus einer Bitstream-Datei (.bit) zu
+ *   konfigurieren und durch eine angepasste parallele Schnittstelle die
+ *   schnellste Datenübertragung von und zur Anwendungslogik im FPGA zu erzielen.
  */
 
 
@@ -36,20 +43,25 @@
 #include <LUFA/Drivers/USB/USB.h>
 #include <LUFA/Platform/Platform.h>
 
-#include "Fct.h"
-#include "Fpga/fpga.h"
-#include "SPI-flash/flash.h"
-#include "Config/AppConfig.h"
-#include "Descriptors.h"
+#include "./Fct.h"
+#include "./Fpga/fpga.h"
+#include "./SPI-flash/flash.h"
+#include "./Config/AppConfig.h"
+#include "./Descriptors.h"
 
 
 /**
  *  \~English
- *   LUFA CDC Class driver interface configuration and state information. This structure is
- *   passed to all CDC Class driver functions, so that multiple instances of the same class
- *   within a device can be differentiated from one another.
+ *   LUFA CDC Class driver interface configuration and state information.
+ *   This structure is passed to all CDC Class driver functions, so that
+ *   multiple instances of the same class within a device can be differentiated
+ *   from one another.
  *
  *  \~German
+ *   Schnittstelleneinstellungen und Statusinformationen des LUFA
+ *   CDC-Klassentreibers. Die Datenstruktur wird jeder Funktion des
+ *   CDC-Klassentreibers übergeben, so dass im Gerät verschiedene Instanzen
+ *   dieser Klasse unterscheidbar sind.
  */
 USB_ClassInfo_CDC_Device_t VirtualSerial_CDC_Interface =
    {
@@ -85,6 +97,9 @@ USB_ClassInfo_CDC_Device_t VirtualSerial_CDC_Interface =
  *   in the C APIs.
  *
  *  \~German
+ *   Standard Datei Datenstrom für die CDC Schnittstelle; sofern eingestellt.
+ *   Hierdurch kann der virtuelle CDC Anschluß in den C APIs wie jeder andere
+ *   Zeichenstrom benutzt werden.
  */
 static FILE USBSerialStream;
 
@@ -96,9 +111,9 @@ static FILE USBSerialStream;
  *   This information is needed to get optimum buffer size.
  *   The code works fine, but has also two drawbacks: It causes the compiler to
  *   assert
- *   \code fct.c:117: warning: function returns address of local variable \endcode
+ *   \code fct.c:119: warning: function returns address of local variable \endcode
  *   This particular warning can be safely ignored.
- *   Secondly it causes the code to get roughly 510 bytes larger.
+ *   Secondly it causes the code to get roughly 510 bytes larger if used.
  *
  *  \~German
  *   Siehe https://www.avrfreaks.net/forum/free-ram-available
@@ -106,9 +121,10 @@ static FILE USBSerialStream;
  *   Puffergröße zu ermitteln.
  *   Der Code funktioniert, hat aber zwei Nebenwirkungen: Er veranlasst den
  *   Compiler zur Beschwerde
- *   \code fct.c:117: warning: function returns address of local variable \endcode
+ *   \code fct.c:119: warning: function returns address of local variable \endcode
  *   Diese spezielle Warnung kann getrost ignoriert werden.
- *   Zweitens wird das Kompilat rund 510 Bytes größer.
+ *   Zweitens wird das Kompilat rund 510 Bytes größer wenn die Funktion benutzt
+ *   wird.
  */
 int availRAM(void)
 {
@@ -154,17 +170,17 @@ const char PROGMEM helpStr[]     = "\r\nCommands:\r\n" \
                                    " ?: Help\r\n";
 
 
-
 uint8_t  mainMachine;
-uint8_t  cfgSrc = 0;
-uint32_t flashAddr = 0;
-uint32_t fileSize = 0;
-
-uint8_t  equal = 0;
 
 
 int main(void)
 {
+      uint8_t  aBuffer[4*CDC_TXRX_EPSIZE];
+      uint8_t  cfgSrc = 0;
+      uint32_t flashAddr = 0;
+      uint32_t fileSize = 0;
+//    uint8_t  equal = 0;
+
    // Disable watchdog if enabled by bootloader/fuses, only works if WDRF is
    // cleared. Ensures some board response, even if BOOTRST is unprogrammed!
    // Otherwise the board will look bricked until a HW-RESET.
@@ -187,7 +203,6 @@ int main(void)
 
    for (;;)
    {
-      uint8_t aBuffer[4*CDC_TXRX_EPSIZE];
 
       switch (mainMachine)
       {
