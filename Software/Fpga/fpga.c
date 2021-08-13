@@ -22,21 +22,22 @@
  *  \~English
  *   @brief Implements FPGA config port dedicated to the Alchitry Mojo v3.
  *          This set of functions could also do for other Xilinx FPGAs, check
- *          the documentation. ug380, xapp502 (xapp176)
+ *          the documentation: ug380.pdf, xapp502.pdf (xapp176.pdf)
  *
  *  \~German
  *   @brief Implementiert die Funktionen zur FPGA-Konfiguration passend
  *          für das Alchitry Mojo v3. Die Funktionen können auch für andere
  *          Xilinx FPGAs verwendet werden, man prüfe die zugehörige
- *          Dokumentation. ug380, xapp502 (xapp176)
+ *          Dokumentation: ug380.pdf, xapp502.pdf (xapp176.pdf)
  */
 
 
-#include "fpga.h"
-#include "Config/AppConfig.h"
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <util/delay.h>
+
+#include "Config/AppConfig.h"
+#include "./fpga.h"
 
 
 // Defines:
@@ -120,8 +121,8 @@ uint8_t XilinxFinishConfig()
                         // conflicts with user logic when FPGA takes over.
    FPGA_DATA_PORT = 0xFF;
    _delay_us(3);        // allow the lines are pulled-up to '1'
-   // in case some PLLs need to lock
-   // ds162 max. 1 ms req'd
+   // ug380, ds162
+   // allow PLLs to lock, max. 1 ms req'd
    // code allows roughly 10 ms @ 8 MHz
    for (uint16_t i = 10000; (i > 0) && !(FPGA_DONE_READ); i--)
    {

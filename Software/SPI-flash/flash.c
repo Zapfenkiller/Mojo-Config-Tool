@@ -28,29 +28,30 @@
  */
 
 
-#include "flash.h"
-#include "Config/AppConfig.h"
 #include <avr/io.h>
 #include <util/delay.h>
 
+#include "Config/AppConfig.h"
+#include "./flash.h"
+
 
 // This table is partially specific to Microchip and invalid for Adesto!
-#define  CMD_WRITE_STATUS         0x01
-#define  CMD_WRITE_MEM_BYTE       0x02
-#define  CMD_READ_MEM_BYTE        0x03
-#define  CMD_WRITE_DISABLE        0x04
-#define  CMD_READ_STATUS          0x05
-#define  CMD_WRITE_ENABLE         0x06
-#define  CMD_BULK_ERASE           0x60
-#define  CMD_EBSY                 0x70
-#define  CMD_DBSY                 0x80
-#define  CMD_JEDEC_READ_ID        0x9F
-#define  CMD_AUTOINC_WRITE_WORD   0xAD
+#define  CMD_WRITE_STATUS         0x01 /**< \~English Microchip: Command to write FLASH status register. \~German Microchip: Kommando zum Schreiben ins FLASH Status-Register. */
+#define  CMD_WRITE_MEM_BYTE       0x02 /**< \~English Microchip: Command to write one FLASH memory byte. \~German Microchip: Kommando zum Schreiben eines Bytes in den FLASH-Speicher. */
+#define  CMD_READ_MEM_BYTE        0x03 /**< \~English Microchip: Command to read one FLASH memory byte. \~German Microchip: Kommando zum Lesen eines Bytes vom FLASH-Speicher. */
+#define  CMD_WRITE_DISABLE        0x04 /**< \~English Microchip: Command to disable writing. \~German Microchip: Kommando zum Sperren der Schreibzugriffe. */
+#define  CMD_READ_STATUS          0x05 /**< \~English Microchip: Command to read FLASH status register. \~German Microchip: Kommando zum Lesen vom FLASH Status-Register. */
+#define  CMD_WRITE_ENABLE         0x06 /**< \~English Microchip: Command to enable writing. \~German Microchip: Kommando zum Erlauben der Schreibzugriffe. */
+#define  CMD_BULK_ERASE           0x60 /**< \~English Microchip: Command to erase the entire FLASH memory. \~German Microchip: Kommando zum Löschen des gesamten FLASH-Speichers. */
+#define  CMD_EBSY                 0x70 /**< \~English Microchip: Command to turn on HW busy indication. \~German Microchip: Kommando zum Einschalten des HW-Busy. */
+#define  CMD_DBSY                 0x80 /**< \~English Microchip: Command to turn off HW busy indication. \~German Microchip: Kommando zum Ausschalten des HW-Busy. */
+#define  CMD_JEDEC_READ_ID        0x9F /**< \~English All: Command to read the chip ID. \~German Alle: Kommando zum Lesen der Chip-ID. */
+#define  CMD_AUTOINC_WRITE_WORD   0xAD /**< \~English Microchip: Command to write a pair of bytes to the FLASH memory. \~German Microchip: Kommando zum paarweisen Schreiben von Bytes in den FLASH-Speicher. */
 
 #define  DESELECT_FLASH    (FLASH_CS_PORT   |=  (1 << FLASH_CS_LINE))   /**< CS = '1' */
 #define  SELECT_FLASH      (FLASH_CS_PORT   &= ~(1 << FLASH_CS_LINE))   /**< CS = '0' */
-#define  FLASH_CS_DRIVE    (FLASH_CS_DIR    |=  (1 << FLASH_CS_LINE))   /**< \~English Defines CS as output to the SPI-FLASH \~German Definiert CS zum SPI-FLASH als Ausgang */
-#define  SPI_MISO_READ     (SPI_CORE_RET    &   (1 << SPI_MISO_LINE))   /**< \~English Reads SPI MISO state \~German Liest den MISO Status der SPI */
+#define  FLASH_CS_DRIVE    (FLASH_CS_DIR    |=  (1 << FLASH_CS_LINE))   /**< \~English Defines CS as output to the SPI-FLASH. \~German Definiert CS zum SPI-FLASH als Ausgang. */
+#define  SPI_MISO_READ     (SPI_CORE_RET    &   (1 << SPI_MISO_LINE))   /**< \~English Reads SPI MISO state. \~German Liest den MISO Status der SPI. */
 #define  SPI_SS_SET        (SPI_CORE_PORT   |=  (1 << SPI_SS_LINE))     /**< SS = '1' */
 
 
@@ -103,13 +104,6 @@ void waitWhileHwBusy(void)
       ;
    DESELECT_FLASH;
 }
-
-
-// ^^^^^^^^^
-// Internal
-// ---------
-// Interface
-// vvvvvvvvv
 
 
 void spiBaseInitHw(void)
