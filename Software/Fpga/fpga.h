@@ -43,10 +43,7 @@
 
    // Defines:
 
-   #define  XILINX_CFG_READY               0    /**< \~English The FPGA configuration waits to get triggered. \~German Die FPGA-Konfiguration wartet auf ihren Einsatz. */
-   #define  XILINX_CFG_ONGOING             1    /**< \~English The FPGA configuration is ongoing, need more data. \~German Die FPGA-Konfiguration ist noch nicht abgeschlossen, benötigt mehr Daten. */
-   #define  XILINX_CFG_FINISHING           2    /**< \~English The FPGA configuration is in the start-up sequence. \~German Die FPGA-Konfiguration ist in der Start-Up Phase. */
-   #define  XILINX_CFG_SUCCESS             3    /**< \~English The FPGA is configured. \~German Die FPGA-Konfiguration ist abgeschlossen. */
+   #define  XILINX_CFG_SUCCESS             0    /**< \~English The FPGA is configured. \~German Die FPGA-Konfiguration ist abgeschlossen. */
    #define  XILINX_CFG_FAIL              255    /**< \~English The FPGA configuration got aborted. \~German Die FPGA-Konfiguration wurde abgebrochen. */
 
    #define  XILINX_FIELD_DESIGN          'a'
@@ -54,6 +51,8 @@
    #define  XILINX_FIELD_DATE            'c'
    #define  XILINX_FIELD_TIME            'd'
    #define  XILINX_FIELD_DATA            'e'
+
+   #define  XILINX_SIZE_OF_SIZE            4
 
 
    // Function Prototypes:
@@ -72,16 +71,6 @@
     */
 
 
-   void XilinxStartConfig(void);
-   /**<
-    * \~English
-    *  prepares the FPGA configuration logic.
-    *
-    * \~German
-    *  bereitet die Konfigurationslogik vor.
-    */
-
-
    void XilinxReset(void);
    /**<
     * \~English
@@ -92,27 +81,27 @@
     */
 
 
-   uint8_t XilinxDoConfig(uint8_t *bytes, uint16_t bCnt);
+   void XilinxWriteBlock(uint8_t* bytes, uint16_t bCnt);
    /**<
     * \~English
-    *  processes one data packet of size \code bCnt \endcode bytes.
-    *  @param[in] pointer to the input stream.
-    *  @param[in] count of bytes ready.
-    *  @return XILINX_CFG_READY,
-    *          XILINX_CFG_ONGOING,
-    *          XILINX_CFG_FINISHING,
-    *          XILINX_CFG_SUCCESS,
-    *          XILINX_CFG_FAIL.
+    *  
+    *  @return 
     *
     * \~German
-    *  verarbeitet ein Datenpaket der Größe \code bCnt \endcode Bytes.
-    *  @param[in] Zeiger auf den Datenstrom.
-    *  @param[in] Anzahl der bereitstehenden Bytes.
-    *  @return XILINX_CFG_READY,
-    *          XILINX_CFG_ONGOING,
-    *          XILINX_CFG_FINISHING,
-    *          XILINX_CFG_SUCCESS,
-    *          XILINX_CFG_FAIL.
+    *  
+    *  @return 
+    */
+
+
+   uint8_t XilinxFinishConfig(void);
+   /**<
+    * \~English
+    *  
+    *  @return 
+    *
+    * \~German
+    *  
+    *  @return 
     */
 
 
@@ -130,31 +119,7 @@
     */
 
 
-   uint32_t XilinxBitstreamLeft(void);
-   /**<
-    * \~English
-    *  reports count of bytes still needing to be transferred to the FPGA.
-    *  @return count.
-    *
-    * \~German
-    *  liefert die Anzahl der Bytes die noch ins FPGA geschoben werden müssen.
-    *  @return Anzahl.
-    */
-
-
-   uint32_t XilinxBitstreamSize(void);
-   /**<
-    * \~English
-    *  reports count of bytes forming the bitstream.
-    *  @return count.
-    *
-    * \~German
-    *  liefert die Anzahl der Bytes des gesamten Bitstreams.
-    *  @return Anzahl.
-    */
-
-
-   char* XilinxGetHeaderField(uint8_t *buffer, uint8_t FieldID);
+   char* XilinxGetHeaderField(uint8_t* buffer, uint8_t FieldID);
    /**<
     * \~English
     *  
@@ -166,7 +131,7 @@
     */
 
 
-   uint32_t XilinxGetSize(uint8_t *buffer);
+   uint32_t XilinxExtractBitstreamSize(uint8_t* buffer);
    /**<
     * \~English
     *  

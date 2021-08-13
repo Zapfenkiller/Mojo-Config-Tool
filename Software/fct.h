@@ -105,7 +105,7 @@
     *  CDC class driver callback when the line encoding shall change.
     *  A baudrate change down to 1200 starts the bootloader!
     *  https://blog.fsck.com/2014/08/how-to-reboot-an-arduino-leonardo-micro-into-the-bootloader.html
-    *  A baudrate change to 2400 performs a hardwarte reset into the FPGA loader
+    *  A baudrate change to 2400 performs a hardware reset into the FPGA loader
     *  application.
     *  \param[in] CDCInterfaceInfo  Pointer to the CDC class interface
     *             configuration structure being referenced
