@@ -51,6 +51,22 @@
     */
 
 
+   void commandLine(void);
+   /**<
+    * \~English
+    *
+    * \~German
+    */
+
+
+   void applicationLoop(void);
+   /**<
+    * \~English
+    *
+    * \~German
+    */
+
+
    void EVENT_USB_Device_Connect(void);
    /**<
     * \~English
