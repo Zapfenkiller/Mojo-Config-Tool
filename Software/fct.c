@@ -252,7 +252,7 @@ void commandLine(void)
    uint32_t flashAddr = 0;
    uint32_t fileSize = 0;
    bool alreadyConnected = false;
-// uint8_t  equal = 0;
+// bool     equal = false;
    uint8_t  aBuffer[1800]; // at least max(4*CDC_TXRX_EPSIZE, 256)
 
    if (*cfgKeyPtr != 0x1234)
@@ -501,6 +501,7 @@ void commandLine(void)
                uint8_t  flBuffer[CDC_TXRX_EPSIZE];
                uint8_t  rxBuffer[CDC_TXRX_EPSIZE];
                uint16_t rxCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
+               equal = true;
                if (rxCount > 0)
                {
                   for (uint8_t n = 0; n < rxCount; n++)
@@ -511,7 +512,7 @@ void commandLine(void)
                      if (aBuffer[n] != flBuffer[n])
                      {
                         fprintf_P(&USBSerialStream, PSTR("%6lx: spi %2x <> usb %2x\r\n"), flashAddr, flBuffer[n], aBuffer[n]);
-                        equal = 0;
+                        equal = false;
                      }
                      flashAddr++;
                   }
@@ -569,30 +570,33 @@ void EVENT_CDC_Device_LineEncodingChanged(USB_ClassInfo_CDC_Device_t *const CDCI
    switch (CDCInterfaceInfo->State.LineEncoding.BaudRateBPS)
    {
       case 1200:  // Activate the Arduino bootloader (Caterina)
+         // Do not block FPGA configuration from FLASH after a reset.
+         *cfgKeyPtr = (uint16_t)0; // just any value != 0x1234 will do
          // Detach USB
          USB_Disable();
          // Disable all interrupts
          cli();
          // Stash the magic keys
          *bootKeyPtr = (uint16_t)0x7777;
-         // Do not block FPGA configuration from FLASH after a reset.
-         *cfgKeyPtr = (uint16_t)0; // just any value != 0x1234 will do
          // Let the WDT do a full HW reset
          // 250 ms is for the USB host to really catch the disconnect
          wdt_enable(WDTO_250MS);
          for (;;);
          break; // just for the convenient look, RESET strikes in the for-loop
       case 2400:  // Turn on command line response to handle FPGA (re)configuration
-         XilinxReset();
-         USB_Disable();
-         cli();
-         *bootKeyPtr = (uint16_t)0; // just any value != 0x7777 will do
          // Block FPGA configuration from FLASH after a reset.
          *cfgKeyPtr = (uint16_t)0x1234;
+         XilinxReset();
+         // Detach USB and so on (see above)
+         USB_Disable();
+         cli();
+         *bootKeyPtr = (uint16_t)0; // just any value != 0x7777 will do here
          wdt_enable(WDTO_250MS);
          for (;;);
          break;
       default:
+         // Active baud rate setting => assume host connects to COM port
+         connected2CDC = true;
          ;
    }
 }
