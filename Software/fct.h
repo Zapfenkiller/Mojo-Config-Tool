@@ -51,7 +51,7 @@
     */
 
 
-   void commandLine(void);
+   void commandLineInterface(void);
    /**<
     * \~English
     *
