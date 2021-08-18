@@ -42,11 +42,13 @@
 #include <util/delay.h>
 #include "stdio.h"
 #include <LUFA/Drivers/USB/USB.h>
+#include <LUFA/Drivers/Misc/RingBuffer.h>
 #include <LUFA/Platform/Platform.h>
 
 #include "./Fct.h"
 #include "./Fpga/fpga.h"
 #include "./SPI-flash/flash.h"
+#include "./Ucif/ucif.h"
 #include "./Config/AppConfig.h"
 #include "./Descriptors.h"
 
@@ -135,21 +137,28 @@ int availRAM(void)
 }
 
 
-#define  MM_WAIT_FOR_CONNECT         0 /**< \~English Wait for Terminal connection. \~German Wartet auf die Verbindungsanfrage vom Terminal. */
-#define  MM_HELP                     1 /**< \~English Send welcome message. \~German Begrüßungsmeldung senden. */
-#define  MM_FLASH_INFO               2 /**< \~English Send information on FLASH (content, ID mismatch). \~German Information über das FLASH senden (Inhalt, nicht unterstützter Chip). */
-#define  MM_PROMPT                   3 /**< \~English Send the command prompt. \~German Das Prompt der Konsole senden. */
-#define  MM_LISTEN                   4 /**< \~English Wait for user input and process it. \~German Nutzereingabe erwarten und verarbeiten. */
-#define  MM_XILINX_TRIGGER_CONFIG    5 /**< \~English Start FPGA configuration. \~German FPGA-Konfiguration starten. */
-#define  MM_XILINX_CONFIGURE_INTRO   6 /**< \~English Process bitstream header. \~German Kopfteil des Bitstreams verarbeiten. */
-#define  MM_XILINX_CONFIGURE_BODY    7 /**< \~English Configure FPGA from data stream. \~German FPGA aus dem Datenstrom konfigurieren. */
-#define  MM_XILINX_FINISH            8 /**< \~English Finish FPGA configuration. \~German Die FPGA-Konfiguration abschliessen. */
-#define  MM_STORE_BITSTREAM_INTRO    9 /**< \~English Process bitstream header, store to flash. \~German Kopfteil des Bitstreams verarbeiten, ins FLASH speichern. */
-#define  MM_STORE_BITSTREAM_BODY    10 /**< \~English Store data stream. \~German Datenstrom ins FLASH speichern. */
-#define  MM_VERIFY_FLASH            11
+#define  CLI_WAIT_FOR_CONNECT        0 /**< \~English Wait for Terminal connection. \~German Wartet auf die Verbindungsanfrage vom Terminal. */
+#define  CLI_HELP                    1 /**< \~English Send welcome message. \~German Begrüßungsmeldung senden. */
+#define  CLI_FLASH_INFO              2 /**< \~English Send information on FLASH (content, ID mismatch). \~German Information über das FLASH senden (Inhalt, nicht unterstützter Chip). */
+#define  CLI_PROMPT                  3 /**< \~English Send the command prompt. \~German Das Prompt der Konsole senden. */
+#define  CLI_LISTEN                  4 /**< \~English Wait for user input and process it. \~German Nutzereingabe erwarten und verarbeiten. */
+#define  CLI_XILINX_TRIGGER_CONFIG   5 /**< \~English Start FPGA configuration. \~German FPGA-Konfiguration starten. */
+#define  CLI_XILINX_CONFIGURE_INTRO  6 /**< \~English Process bitstream header. \~German Kopfteil des Bitstreams verarbeiten. */
+#define  CLI_XILINX_CONFIGURE_BODY   7 /**< \~English Configure FPGA from data stream. \~German FPGA aus dem Datenstrom konfigurieren. */
+#define  CLI_XILINX_FINISH           8 /**< \~English Finish FPGA configuration. \~German Die FPGA-Konfiguration abschliessen. */
+#define  CLI_STORE_BITSTREAM_INTRO   9 /**< \~English Process bitstream header, store to flash. \~German Kopfteil des Bitstreams verarbeiten, ins FLASH speichern. */
+#define  CLI_STORE_BITSTREAM_BODY   10 /**< \~English Store data stream. \~German Datenstrom ins FLASH speichern. */
+#define  CLI_VERIFY_FLASH           11
 
 #define  CFG_SRC_USB               'u' /**< \~English Bitstream source is USB. \~German Der Datenstrom kommt vom USB. */
 #define  CFG_SRC_SPI               's' /**< \~English Bitstream source is FLASH. \~German Der Datenstrom kommt aus dem FLASH. */
+
+#define  APP_WAIT_FOR_PACKET_ID      0
+#define  APP_WAIT_FOR_PACKET_SIZE    1
+#define  APP_UCIF_SDR_WR             2
+#define  APP_UCIF_DDR_WR             3
+#define  APP_UCIF_SDR_RD             4
+#define  APP_UCIF_DDR_RD             5
 
 
 const char PROGMEM greetStr[]    = "\r\n\n* Mojo OS *\r\n" \
@@ -194,6 +203,7 @@ int main(void)
    wdt_disable();
 
    clock_prescale_set(clock_div_1);
+   ucifBaseInit();
    XilinxPreparePorts();
    spiBaseInitHw();
 
@@ -209,7 +219,7 @@ int main(void)
    for(;;)
    {
       if (!XilinxConfigured())
-         commandLine();
+         commandLineInterface();
       else
          applicationLoop();
    }
@@ -218,36 +228,137 @@ int main(void)
 
 void applicationLoop(void)
 {
-   bool alreadyConnected = false;
+   uint8_t        buffermemory[2*CDC_TXRX_EPSIZE];
+   RingBuffer_t   inBuffer;
+   uint8_t        id = 0;
+   uint8_t        size = 0;
+   uint8_t        appState = APP_WAIT_FOR_PACKET_ID;
+
+   ucifBaseInit();
+   RingBuffer_InitBuffer(&inBuffer, buffermemory, sizeof(buffermemory));
 
    for(;;)
    {
+
       CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
       USB_USBTask();
 
-      if (connected2CDC && !alreadyConnected)
-      {
-         p(PSTR("'R' to reconfigure\r\n"));
-      }
-      alreadyConnected = connected2CDC;
+      uint16_t rxCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
+      uint16_t freeCount = RingBuffer_GetFreeCount(&inBuffer);
+      uint16_t count = (freeCount > rxCount) ? rxCount : freeCount;
+      for (; count > 0; count--)
+         RingBuffer_Insert(&inBuffer, CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface));
 
-      while (CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface) > 0)
+      switch(appState)
       {
-         if (CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface) == 'R')
-         {
-            XilinxReset();
-            *cfgKeyPtr = (uint16_t)0x1234;
-            return;
-         }
+         case APP_WAIT_FOR_PACKET_ID:
+            if (RingBuffer_GetCount(&inBuffer) > 0)
+            {
+               id = RingBuffer_Remove(&inBuffer);
+               appState = APP_WAIT_FOR_PACKET_SIZE;
+            }
+            break;
+         case APP_WAIT_FOR_PACKET_SIZE:
+            if (RingBuffer_GetCount(&inBuffer) > 0)
+            {
+               size = RingBuffer_Remove(&inBuffer);
+               CDC_Device_SendByte(&VirtualSerial_CDC_Interface, id);
+               CDC_Device_SendByte(&VirtualSerial_CDC_Interface, size);
+               switch(id)
+               {
+                  case 'w':   // SDR-WR packet
+                     UCIF_DDR_CLR;
+                     appState = APP_UCIF_SDR_WR;
+                     break;
+                  case 'W':   // DDR-WR packet
+                     UCIF_DDR_SET;
+                     appState = APP_UCIF_DDR_WR;
+                     break;
+                  case 'r':   // SDR-RD packet
+                     UCIF_DDR_CLR;
+                     appState = APP_UCIF_SDR_RD;
+                     break;
+                  case 'R':   // DDR-RD packet
+                     UCIF_DDR_SET;
+                     appState = APP_UCIF_DDR_RD;
+                     break;
+                  case '#':   // Return to reconfiguration
+                     if (size == 'R')
+                     {
+                        XilinxReset();
+                        *cfgKeyPtr = (uint16_t)0x1234;
+                        return;
+                     }
+                  default:
+                     appState = APP_WAIT_FOR_PACKET_ID;
+               }
+            }
+            break;
+         case APP_UCIF_SDR_WR:
+         case APP_UCIF_DDR_WR:
+            {
+               UCIF_RW_CLR;
+               UCIF_AS_OUTPUT;
+               uint16_t ready = RingBuffer_GetCount(&inBuffer);
+               while ((ready > 1) && (size > 0))
+               {
+                  UCIF_DATA_PORT = RingBuffer_Remove(&inBuffer);
+                  UCIF_E_SET;
+                  UCIF_DATA_PORT = RingBuffer_Remove(&inBuffer);
+                  UCIF_E_CLR;
+                  size--;
+               }
+               if (size == 0)
+                  appState = APP_WAIT_FOR_PACKET_ID;
+            }
+            break;
+         case APP_UCIF_SDR_RD:
+            {
+               uint16_t ready = RingBuffer_GetCount(&inBuffer);
+               while ((ready > 0) && (size > 0))
+               {
+                  UCIF_RW_CLR;
+                  UCIF_AS_OUTPUT;
+                  UCIF_DATA_PORT = RingBuffer_Remove(&inBuffer);
+                  UCIF_E_SET;
+                  UCIF_AS_INPUT;
+                  UCIF_RW_SET;
+                  UCIF_E_CLR;
+                  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, UCIF_DATA_RET);
+                  ready--;
+                  size--;
+               }
+               if (size == 0)
+                  appState = APP_WAIT_FOR_PACKET_ID;
+            }
+            break;
+         case APP_UCIF_DDR_RD:
+            {
+               UCIF_AS_INPUT;
+               UCIF_RW_SET;
+               while (size > 0)
+               {
+                  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, UCIF_DATA_RET);
+                  UCIF_E_SET;
+                  CDC_Device_SendByte(&VirtualSerial_CDC_Interface, UCIF_DATA_RET);
+                  UCIF_E_CLR;
+                  size--;
+               }
+               if (size == 0)
+                  appState = APP_WAIT_FOR_PACKET_ID;
+            }
+            break;
+         default:
+            ;
       }
-
+      CDC_Device_Flush(&VirtualSerial_CDC_Interface);
    }
 }
 
 
-void commandLine(void)
+void commandLineInterface(void)
 {
-   uint8_t  mainMachine;
+   uint8_t  cliState;
    uint8_t  cfgSrc = 0;
    uint32_t flashAddr = 0;
    uint32_t fileSize = 0;
@@ -258,18 +369,18 @@ void commandLine(void)
    if (*cfgKeyPtr != 0x1234)
    {
       cfgSrc = CFG_SRC_SPI;
-      mainMachine = MM_XILINX_TRIGGER_CONFIG;
+      cliState = CLI_XILINX_TRIGGER_CONFIG;
    }
    else
-      mainMachine = MM_WAIT_FOR_CONNECT;
+      cliState = CLI_WAIT_FOR_CONNECT;
 
    for (;;)
    {
       CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
       USB_USBTask();
-      switch (mainMachine)
+      switch (cliState)
       {
-         case MM_WAIT_FOR_CONNECT:
+         case CLI_WAIT_FOR_CONNECT:
             if (CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface) != 0)
             {
                CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
@@ -280,17 +391,17 @@ void commandLine(void)
                if (!alreadyConnected)
                {
                   p(greetStr);
-                  mainMachine = MM_HELP;
+                  cliState = CLI_HELP;
                }
                else
-                  mainMachine = MM_PROMPT;
+                  cliState = CLI_PROMPT;
             }
             alreadyConnected = connected2CDC;
             break;
-         case MM_HELP:
+         case CLI_HELP:
             p(helpStr);
             // There is intentionally no `break;` here!
-         case MM_FLASH_INFO: ;
+         case CLI_FLASH_INFO: ;
             {
                char* ptr = 0;
 
@@ -307,16 +418,16 @@ void commandLine(void)
                   p(emptyStr);
             }
             // There is intentionally no `break;` here!
-         case MM_PROMPT:
+         case CLI_PROMPT:
             p(promptStr);
-            mainMachine = MM_LISTEN;
+            cliState = CLI_LISTEN;
             // There is intentionally no `break;` here!
-         case MM_LISTEN:
+         case CLI_LISTEN:
             {
                uint8_t rxCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
                if (rxCount == 1)
                {
-                  mainMachine = MM_WAIT_FOR_CONNECT;
+                  cliState = CLI_WAIT_FOR_CONNECT;
                   uint8_t cmdChar = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
                   CDC_Device_SendByte(&VirtualSerial_CDC_Interface, cmdChar);
                   switch (cmdChar)
@@ -325,34 +436,34 @@ void commandLine(void)
                      case '\n':
                         break;
                      case '?':   // 'manpage'
-                        mainMachine = MM_HELP;
+                        cliState = CLI_HELP;
                         break;
                      case 'i':   // return bitstream header info from FLASH
-                        mainMachine = MM_FLASH_INFO;
+                        cliState = CLI_FLASH_INFO;
                         break;
                      case 'V':   // feed bitstream volatile into FPGA
                         cfgSrc = CFG_SRC_USB;
                         p(needStr);
-                        mainMachine = MM_XILINX_TRIGGER_CONFIG;
+                        cliState = CLI_XILINX_TRIGGER_CONFIG;
                         break;
                      case 'C':   // configure from recent SPI-FLASH content
                         cfgSrc = CFG_SRC_SPI;
                         p(PSTR("\r\n"));
-                        mainMachine = MM_XILINX_TRIGGER_CONFIG;
+                        cliState = CLI_XILINX_TRIGGER_CONFIG;
                         break;
                      case 'W':   // store bitstream non-volatile into SPI-FLASH
                         eraseFlash();
                         p(needStr);
                         flashAddr = 0;
                         fileSize = 0;
-                        mainMachine = MM_STORE_BITSTREAM_INTRO;
+                        cliState = CLI_STORE_BITSTREAM_INTRO;
                         break;
                      /*
                      case 'v':   // verify FLASH data
                         p(needStr);
                         flashAddr = 0;
                         equal = 0xFF;
-                        mainMachine = MM_VERIFY_FLASH;
+                        cliState = CLI_VERIFY_FLASH;
                         break;
                      */
                      case 'E':   // erase FLASH
@@ -367,12 +478,12 @@ void commandLine(void)
                      CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
             }
             break;
-         case MM_XILINX_TRIGGER_CONFIG:
+         case CLI_XILINX_TRIGGER_CONFIG:
             flashAddr = 0;
             fileSize = 0;
-            mainMachine = MM_XILINX_CONFIGURE_INTRO;
+            cliState = CLI_XILINX_CONFIGURE_INTRO;
             // There is intentionally no `break;` here!
-         case MM_XILINX_CONFIGURE_INTRO:
+         case CLI_XILINX_CONFIGURE_INTRO:
             switch (cfgSrc)
             {
                case CFG_SRC_USB:
@@ -380,7 +491,8 @@ void commandLine(void)
                      // Free the EP as fast as possible for the next USB packet
                      // to drop in in the background. Hope this is how LUFA
                      // works otherwise this is waste.
-                     for (uint8_t n = 0; n < CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface); n++)
+                     uint16_t rxCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
+                     for (uint16_t n = 0; n < rxCount; n++)
                         aBuffer[flashAddr++] = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
                   }
                   break;
@@ -392,7 +504,7 @@ void commandLine(void)
                   }
                   break;
                default:
-                  mainMachine = MM_WAIT_FOR_CONNECT;
+                  cliState = CLI_WAIT_FOR_CONNECT;
             }
             if (flashAddr > (sizeof(aBuffer) - CDC_TXRX_EPSIZE))
             {
@@ -405,22 +517,22 @@ void commandLine(void)
                   fileSize -= remaining;
                   XilinxReset();
                   XilinxWriteBlock(ptrToData, remaining);
-                  mainMachine = MM_XILINX_CONFIGURE_BODY;
+                  cliState = CLI_XILINX_CONFIGURE_BODY;
                }
                else
                {
                   p(invalidStr);
-                  mainMachine = MM_WAIT_FOR_CONNECT;
+                  cliState = CLI_WAIT_FOR_CONNECT;
                }
             }
             break;
-         case MM_XILINX_CONFIGURE_BODY: ;
+         case CLI_XILINX_CONFIGURE_BODY: ;
             {
                uint16_t rxCount = 0;
                if (cfgSrc == CFG_SRC_USB)
                {
                   rxCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
-                  for (uint8_t n = 0; n < rxCount; n++)
+                  for (uint16_t n = 0; n < rxCount; n++)
                      aBuffer[n] = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
                }
                else // CFG_SRC_SPI
@@ -438,10 +550,10 @@ void commandLine(void)
                   fileSize -= rxCount;
                XilinxWriteBlock(aBuffer, rxCount);
                if (fileSize == 0)
-                  mainMachine = MM_XILINX_FINISH;
+                  cliState = CLI_XILINX_FINISH;
             }
             break;
-         case MM_XILINX_FINISH:
+         case CLI_XILINX_FINISH:
             {
                if (XilinxFinishConfig() == XILINX_CFG_SUCCESS)
                {
@@ -451,14 +563,14 @@ void commandLine(void)
                else
                {
                   p(failStr);
-                  mainMachine = MM_WAIT_FOR_CONNECT;
+                  cliState = CLI_WAIT_FOR_CONNECT;
                }
             }
             break;
-         case MM_STORE_BITSTREAM_INTRO: ;
+         case CLI_STORE_BITSTREAM_INTRO: ;
             {
                uint16_t rxCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
-               for (uint8_t n = 0; n < rxCount; n++)
+               for (uint16_t n = 0; n < rxCount; n++)
                   aBuffer[flashAddr++] = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
                if (flashAddr > (sizeof(aBuffer) - CDC_TXRX_EPSIZE))
                {
@@ -468,22 +580,22 @@ void commandLine(void)
                      fileSize = XilinxExtractBitstreamSize(ptrToSize);
                      fileSize += (uint32_t)(ptrToSize - aBuffer);
                      writeFlash(aBuffer, 0, (uint16_t) flashAddr);
-                     mainMachine = MM_STORE_BITSTREAM_BODY;
+                     cliState = CLI_STORE_BITSTREAM_BODY;
                   }
                   else
                   {
                      p(invalidStr);
-                     mainMachine = MM_WAIT_FOR_CONNECT;
+                     cliState = CLI_WAIT_FOR_CONNECT;
                   }
                }
             }
             break;
-         case MM_STORE_BITSTREAM_BODY: ;
+         case CLI_STORE_BITSTREAM_BODY: ;
             {
                uint16_t rxCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
                if (rxCount > 0)
                {
-                  for (uint8_t n = 0; n < rxCount; n++)
+                  for (uint16_t n = 0; n < rxCount; n++)
                      aBuffer[n] = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
                   writeFlash(aBuffer, flashAddr, rxCount);
                   flashAddr += rxCount;
@@ -491,12 +603,12 @@ void commandLine(void)
                if (flashAddr >= fileSize)
                {
                   cfgSrc = CFG_SRC_SPI;
-                  mainMachine = MM_XILINX_TRIGGER_CONFIG;
+                  cliState = CLI_XILINX_TRIGGER_CONFIG;
                }
             }
             break;
          /*
-         case MM_VERIFY_FLASH:
+         case CLI_VERIFY_FLASH:
             {
                uint8_t  flBuffer[CDC_TXRX_EPSIZE];
                uint8_t  rxBuffer[CDC_TXRX_EPSIZE];
