@@ -73,10 +73,11 @@ uint32_t streamSize;
 
 void XilinxPreparePorts(void)
 {
+   // ug380: PROGRAM_B, DONE always have pull up, INIT_B just in config mode
    FPGA_nPROG_SET;            // prepare '1' to get driven
    FPGA_nPROG_DRIVE;          // set GPIO as output
    FPGA_DONE_HIZ;             // set GPIO as input
-   FPGA_DONE_SET;             // enable weak pullup on dedicated input pin
+   FPGA_DONE_CLR;             // disable weak pullup on dedicated pin
    FPGA_CCLK_HIZ;             // set GPIO as input
    FPGA_CCLK_CLR;             // disable weak pullup on user I/O
    FPGA_nINIT_HIZ;            // set GPIO as input
@@ -88,12 +89,20 @@ void XilinxPreparePorts(void)
 
 void XilinxReset(void)
 {
+   
+   // just restore what a ridiculous application might have destroyed
+   FPGA_DONE_HIZ;             // set GPIO as input
+   FPGA_nINIT_HIZ;            // set GPIO as input
+   FPGA_nPROG_DRIVE;          // set GPIO as output
+   // ug380: INIT_B gets weak pull up input in config mode
    // ds162:   min 500 ns of nPROG low pulse
    FPGA_nPROG_CLR;            // reset the FPGA
    _delay_us(1);              // allow the FPGA to respond, 1000 ns
    FPGA_CCLK_CLR;             // preselect '0' = GND
    FPGA_CCLK_DRIVE;           // set GPIO as output
    FPGA_nPROG_SET;            // release reset to FPGA
+   FPGA_DATA_HIZ;             // set GPIO as input
+   FPGA_DATA_PORT = 0xFF;     // enable weak pullup on user I/O, avoid floating
    while (!FPGA_nINIT_READ)   // wait until FPGA is ready for configuration
       ;                       // t_{PL} <= 4 ms
    // xapp176: no further delay required
