@@ -39,6 +39,7 @@
 #include <avr/pgmspace.h>
 #include <avr/power.h>
 #include <avr/wdt.h>
+#include <avr/io.h>
 #include <util/delay.h>
 #include "stdio.h"
 #include <LUFA/Drivers/USB/USB.h>
@@ -172,7 +173,16 @@ int main(void)
    MCUSR &= ~(1 << WDRF);
    wdt_disable();
 
+   // Countermeasure possible CLKDIV8
    clock_prescale_set(clock_div_1);
+
+   // Enable a weak pullup to unusable GPIOs. This prevents pins from floating,
+   // it has no risk if GNDed by layout. Schematic tells those are unconnected.
+   DDRE  &= ~(1 << PE6);
+   PORTE |=  (1 << PE6);
+   DDRD  &= ~(1 << PD7);
+   PORTD |=  (1 << PD7);
+
    ucifBaseInit();
    XilinxPreparePorts();
    spiBaseInitHw();
