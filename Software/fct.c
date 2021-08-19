@@ -107,36 +107,6 @@ USB_ClassInfo_CDC_Device_t VirtualSerial_CDC_Interface =
 static FILE USBSerialStream;
 
 
-/**
- *  \~English
- *   Some clever code to get the amount of currently available heap space is
- *   found at https://www.avrfreaks.net/forum/free-ram-available
- *   This information is needed to get optimum buffer size.
- *   The code works fine, but has also two drawbacks: It causes the compiler to
- *   assert
- *   \code fct.c:136: warning: function returns address of local variable \endcode
- *   This particular warning can be safely ignored.
- *   Secondly it causes the code to get roughly 510 bytes larger if used.
- *
- *  \~German
- *   Siehe https://www.avrfreaks.net/forum/free-ram-available
- *   Berechnet den aktuell freien Platz im Heap. Wird benötigt um die optimale
- *   Puffergröße zu ermitteln.
- *   Der Code funktioniert, hat aber zwei Nebenwirkungen: Er veranlasst den
- *   Compiler zur Beschwerde
- *   \code fct.c:136: warning: function returns address of local variable \endcode
- *   Diese spezielle Warnung kann getrost ignoriert werden.
- *   Zweitens wird das Kompilat rund 510 Bytes größer wenn die Funktion benutzt
- *   wird.
- */
-int availRAM(void)
-{
-   extern int __heap_start, *__brkval;
-   int v;
-   return ((int) &v - (__brkval == 0 ? (int) &__heap_start: (int) __brkval));
-}
-
-
 #define  CLI_WAIT_FOR_CONNECT        0 /**< \~English Wait for Terminal connection. \~German Wartet auf die Verbindungsanfrage vom Terminal. */
 #define  CLI_HELP                    1 /**< \~English Send welcome message. \~German Begrüßungsmeldung senden. */
 #define  CLI_FLASH_INFO              2 /**< \~English Send information on FLASH (content, ID mismatch). \~German Information über das FLASH senden (Inhalt, nicht unterstützter Chip). */
@@ -171,6 +141,7 @@ const char PROGMEM failStr[]     = "\r\nFAIL";
 const char PROGMEM emptyStr[]    = "\r\nConfig FLASH is empty";
 const char PROGMEM wrongStr[]    = "\r\nNot a Microchip FLASH";
 const char PROGMEM invalidStr[]  = "\r\nInvalid bitstream";
+//const char PROGMEM unequalStr[]  = "\r\nMismatch";
 const char PROGMEM helpStr[]     = "\r\nCommands:\r\n" \
                                    " V: Volatile Config\r\n" \
                                    " E: Erase FLASH\r\n" \
@@ -360,7 +331,6 @@ void commandLineInterface(void)
    uint8_t  cfgSrc = 0;
    uint32_t flashAddr = 0;
    uint32_t fileSize = 0;
-// bool     equal = false;
    uint8_t  aBuffer[1800]; // at least max(4*CDC_TXRX_EPSIZE, 256)
 
    if (*cfgKeyPtr != 0x1234)
@@ -445,14 +415,13 @@ void commandLineInterface(void)
                         fileSize = 0;
                         cliState = CLI_STORE_BITSTREAM_INTRO;
                         break;
-                     /*
+/*
                      case 'v':   // verify FLASH data
                         p(needStr);
                         flashAddr = 0;
-                        equal = 0xFF;
                         cliState = CLI_VERIFY_FLASH;
                         break;
-                     */
+*/
                      case 'E':   // erase FLASH
                         eraseFlash();
                         break;
@@ -594,31 +563,29 @@ void commandLineInterface(void)
                }
             }
             break;
-         /*
+/*
          case CLI_VERIFY_FLASH:
             {
                uint8_t  flBuffer[CDC_TXRX_EPSIZE];
-               uint8_t  rxBuffer[CDC_TXRX_EPSIZE];
                uint16_t rxCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
-               equal = true;
                if (rxCount > 0)
                {
-                  for (uint8_t n = 0; n < rxCount; n++)
+                  for (uint16_t n = 0; n < rxCount; n++)
                      aBuffer[n] = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
                   readFlash(flBuffer, flashAddr, rxCount);
+                  flashAddr += rxCount;
                   for (uint16_t n = 0; n < rxCount; n++)
                   {
                      if (aBuffer[n] != flBuffer[n])
                      {
-                        fprintf_P(&USBSerialStream, PSTR("%6lx: spi %2x <> usb %2x\r\n"), flashAddr, flBuffer[n], aBuffer[n]);
-                        equal = false;
+                        p(unequalStr);
+                        cliState = CLI_PROMPT;
                      }
-                     flashAddr++;
                   }
                }
             }
             break;
-         */
+*/
          default:
             ;
       }
