@@ -114,7 +114,7 @@ static FILE USBSerialStream;
  *   This information is needed to get optimum buffer size.
  *   The code works fine, but has also two drawbacks: It causes the compiler to
  *   assert
- *   \code fct.c:134: warning: function returns address of local variable \endcode
+ *   \code fct.c:136: warning: function returns address of local variable \endcode
  *   This particular warning can be safely ignored.
  *   Secondly it causes the code to get roughly 510 bytes larger if used.
  *
@@ -124,7 +124,7 @@ static FILE USBSerialStream;
  *   Puffergröße zu ermitteln.
  *   Der Code funktioniert, hat aber zwei Nebenwirkungen: Er veranlasst den
  *   Compiler zur Beschwerde
- *   \code fct.c:134: warning: function returns address of local variable \endcode
+ *   \code fct.c:136: warning: function returns address of local variable \endcode
  *   Diese spezielle Warnung kann getrost ignoriert werden.
  *   Zweitens wird das Kompilat rund 510 Bytes größer wenn die Funktion benutzt
  *   wird.
@@ -188,7 +188,6 @@ void p(const char *str)
 
 volatile uint16_t *const bootKeyPtr = (volatile uint16_t*)0x0800;
 volatile uint16_t *const cfgKeyPtr = (volatile uint16_t*)0x0802;
-bool connected2CDC;
 
 
 int main(void)
@@ -206,8 +205,6 @@ int main(void)
    ucifBaseInit();
    XilinxPreparePorts();
    spiBaseInitHw();
-
-   connected2CDC = false;
 
    // Create a regular character stream for the interface so that it can be
    // used with the stdio.h functions
@@ -362,7 +359,6 @@ void commandLineInterface(void)
    uint8_t  cfgSrc = 0;
    uint32_t flashAddr = 0;
    uint32_t fileSize = 0;
-   bool alreadyConnected = false;
 // bool     equal = false;
    uint8_t  aBuffer[1800]; // at least max(4*CDC_TXRX_EPSIZE, 256)
 
@@ -381,22 +377,18 @@ void commandLineInterface(void)
       switch (cliState)
       {
          case CLI_WAIT_FOR_CONNECT:
-            if (CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface) != 0)
             {
-               CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
-               connected2CDC = true;
-            }
-            if (connected2CDC)
-            {
-               if (!alreadyConnected)
+               uint8_t rxCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
+               if (rxCount == 1)
                {
+                  CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
                   p(greetStr);
                   cliState = CLI_HELP;
                }
                else
-                  cliState = CLI_PROMPT;
+                  for (uint8_t n = rxCount; n > 0; n--)
+                     CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
             }
-            alreadyConnected = connected2CDC;
             break;
          case CLI_HELP:
             p(helpStr);
@@ -427,7 +419,7 @@ void commandLineInterface(void)
                uint8_t rxCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
                if (rxCount == 1)
                {
-                  cliState = CLI_WAIT_FOR_CONNECT;
+                  cliState = CLI_PROMPT;
                   uint8_t cmdChar = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
                   CDC_Device_SendByte(&VirtualSerial_CDC_Interface, cmdChar);
                   switch (cmdChar)
@@ -504,7 +496,7 @@ void commandLineInterface(void)
                   }
                   break;
                default:
-                  cliState = CLI_WAIT_FOR_CONNECT;
+                  cliState = CLI_PROMPT;
             }
             if (flashAddr > (sizeof(aBuffer) - CDC_TXRX_EPSIZE))
             {
@@ -522,7 +514,7 @@ void commandLineInterface(void)
                else
                {
                   p(invalidStr);
-                  cliState = CLI_WAIT_FOR_CONNECT;
+                  cliState = CLI_PROMPT;
                }
             }
             break;
@@ -563,7 +555,7 @@ void commandLineInterface(void)
                else
                {
                   p(failStr);
-                  cliState = CLI_WAIT_FOR_CONNECT;
+                  cliState = CLI_PROMPT;
                }
             }
             break;
@@ -585,7 +577,7 @@ void commandLineInterface(void)
                   else
                   {
                      p(invalidStr);
-                     cliState = CLI_WAIT_FOR_CONNECT;
+                     cliState = CLI_PROMPT;
                   }
                }
             }
@@ -646,8 +638,6 @@ void EVENT_USB_Device_Connect(void)
 
 void EVENT_USB_Device_Disconnect(void)
 {
-   // Does not cover all events, but at least USB host plug off.
-   connected2CDC = false;
 }
 
 
@@ -667,13 +657,7 @@ void EVENT_USB_Device_ControlRequest(void)
 
 void EVENT_CDC_Device_ControLineStateChanged(USB_ClassInfo_CDC_Device_t *const CDCInterfaceInfo)
 {
-   bool CurrentDTRState  = (CDCInterfaceInfo->State.ControlLineStates.HostToDevice & CDC_CONTROL_LINE_OUT_DTR);
-
-   // DTR == active => assume host connects to COM port
-   if (CurrentDTRState)
-      connected2CDC = true;
-   else
-      connected2CDC = false;
+// bool CurrentDTRState  = (CDCInterfaceInfo->State.ControlLineStates.HostToDevice & CDC_CONTROL_LINE_OUT_DTR);
 }
 
 
@@ -707,8 +691,6 @@ void EVENT_CDC_Device_LineEncodingChanged(USB_ClassInfo_CDC_Device_t *const CDCI
          for (;;);
          break;
       default:
-         // Active baud rate setting => assume host connects to COM port
-         connected2CDC = true;
          ;
    }
 }
