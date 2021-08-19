@@ -163,7 +163,7 @@ int availRAM(void)
 
 const char PROGMEM greetStr[]    = "\r\n\n* Mojo OS *\r\n" \
                                    "(c) 2021, R. Trapp\n";
-const char PROGMEM promptStr[]   = "\r\n> ";
+const char PROGMEM promptStr[]   = "\r\n>";
 const char PROGMEM unknownStr[]  = " <- ?";
 const char PROGMEM needStr[]     = "\r\nAwaiting data";
 const char PROGMEM successStr[]  = "\r\nSuccess\r\n";
@@ -286,6 +286,7 @@ void applicationLoop(void)
                         *cfgKeyPtr = (uint16_t)0x1234;
                         return;
                      }
+                     // There is intentionally no `break;` here!
                   default:
                      appState = APP_WAIT_FOR_PACKET_ID;
                }
@@ -377,17 +378,11 @@ void commandLineInterface(void)
       switch (cliState)
       {
          case CLI_WAIT_FOR_CONNECT:
+            if (CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface) != 0)
             {
-               uint8_t rxCount = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
-               if (rxCount == 1)
-               {
-                  CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
-                  p(greetStr);
-                  cliState = CLI_HELP;
-               }
-               else
-                  for (uint8_t n = rxCount; n > 0; n--)
-                     CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
+               CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
+               p(greetStr);
+               cliState = CLI_HELP;
             }
             break;
          case CLI_HELP:
