@@ -1,0 +1,76 @@
+
+# PlanAhead Generated IO constraints 
+NET "io_DATA[7]" IOSTANDARD = LVCMOS33;
+NET "io_DATA[6]" IOSTANDARD = LVCMOS33;
+NET "io_DATA[5]" IOSTANDARD = LVCMOS33;
+NET "io_DATA[4]" IOSTANDARD = LVCMOS33;
+NET "io_DATA[3]" IOSTANDARD = LVCMOS33;
+NET "io_DATA[2]" IOSTANDARD = LVCMOS33;
+NET "io_DATA[1]" IOSTANDARD = LVCMOS33;
+NET "io_DATA[0]" IOSTANDARD = LVCMOS33;
+
+# PlanAhead Generated physical constraints 
+NET "io_DATA[7]" LOC = P65;
+NET "io_DATA[6]" LOC = P62;
+NET "io_DATA[5]" LOC = P61;
+NET "io_DATA[4]" LOC = P46;
+NET "io_DATA[3]" LOC = P45;
+NET "io_DATA[2]" LOC = P44;
+NET "io_DATA[1]" LOC = P43;
+NET "io_DATA[0]" LOC = P48;
+
+# PlanAhead Generated IO constraints 
+NET "io_DATA[7]" DRIVE = 4;
+NET "io_DATA[6]" DRIVE = 4;
+NET "io_DATA[5]" DRIVE = 4;
+NET "io_DATA[4]" DRIVE = 4;
+NET "io_DATA[3]" DRIVE = 4;
+NET "io_DATA[2]" DRIVE = 4;
+NET "io_DATA[1]" DRIVE = 4;
+NET "io_DATA[0]" DRIVE = 4;
+NET "i_BUTTON" IOSTANDARD = LVCMOS33;
+NET "i_CLOCK" IOSTANDARD = LVCMOS33;
+NET "i_DDR" IOSTANDARD = LVCMOS33;
+NET "i_E" IOSTANDARD = LVCMOS33;
+NET "i_RW" IOSTANDARD = LVCMOS33;
+
+# PlanAhead Generated physical constraints 
+NET "i_BUTTON" LOC = P38;
+NET "i_CLOCK" LOC = P56;
+NET "i_DDR" LOC = P70;
+NET "i_E" LOC = P55;
+NET "i_RW" LOC = P59;
+
+# PlanAhead Generated IO constraints 
+NET "o_LED2" IOSTANDARD = LVCMOS33;
+NET "o_LED3" IOSTANDARD = LVCMOS33;
+NET "o_LED4" IOSTANDARD = LVCMOS33;
+NET "o_LED5" IOSTANDARD = LVCMOS33;
+NET "o_LED6" IOSTANDARD = LVCMOS33;
+NET "o_LED9" IOSTANDARD = LVCMOS33;
+NET "o_LED8" IOSTANDARD = LVCMOS33;
+NET "o_LED7" IOSTANDARD = LVCMOS33;
+
+# PlanAhead Generated physical constraints 
+NET "o_LED2" LOC = P134;
+NET "o_LED3" LOC = P133;
+NET "o_LED4" LOC = P132;
+NET "o_LED5" LOC = P131;
+NET "o_LED6" LOC = P127;
+NET "o_LED7" LOC = P126;
+NET "o_LED8" LOC = P124;
+NET "o_LED9" LOC = P123;
+
+# PlanAhead Generated IO constraints 
+NET "o_LED2" DRIVE = 24;
+NET "o_LED3" DRIVE = 24;
+NET "o_LED4" DRIVE = 24;
+NET "o_LED5" DRIVE = 24;
+NET "o_LED9" DRIVE = 24;
+NET "o_LED8" DRIVE = 24;
+NET "o_LED7" DRIVE = 24;
+NET "o_LED6" DRIVE = 24;
+#Created by Constraints Editor (xc6slx9-tqg144-2) - 2021/08/19
+#Conservative estimation
+NET "i_CLOCK" TNM_NET = i_CLOCK;
+TIMESPEC TS_i_CLOCK = PERIOD "i_CLOCK" 20 ns HIGH 50% INPUT_JITTER 3000 ps;
