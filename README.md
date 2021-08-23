@@ -22,6 +22,6 @@ FLASHed design.
 While the application interface is running a "#R" sequence does
 the same, just for some convenience.
 
-In case there is no valid bitstream stored to the serial FLASH, a simple command
-line awaits the user, otherwise the bistream is configuring the FPGA and the
+In case there is no valid bitstream stored to the serial FLASH a simple command
+line awaits the user. Otherwise the bistream is configuring the FPGA and the
 application function takes over communication.
