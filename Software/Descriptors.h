@@ -35,6 +35,7 @@
  *  Diese Datei wird ebenfalls von der Applikation benutzt.
  */
 
+
 #ifndef _DESCRIPTORS_H_
    #define _DESCRIPTORS_H_
 
@@ -72,6 +73,10 @@
     *  devices, and which describe the device's usage to the host.
     *
     *  \~German
+    *  Typdefinition der Device Configuration Descriptor Struktur.
+    *  Sie muss im Anwendungsteil definiert werden, da sie einige weitere
+    *  Deskriptoren enthält die sich zwischen den Geräten unterscheiden können.
+    *  Diese Deskriptoren benötigt der USB Host.
     */
    typedef struct
    {
@@ -99,6 +104,9 @@
     *  descriptors.
     *
     *  \~German
+    *  Typdefinition der Device Interface Descriptor Struktur.
+    *  Jeder Deskriptor sollte eine eineindeutige ID erhalten um ein bestimmtes
+    *  Gerät (Interface) gezielt anzusprechen.
     */
    enum InterfaceDescriptors_t
    {
@@ -131,8 +139,12 @@
 
    /**
     * \~English
+    *  Defines a callback to the framework so that any query from the USB host
+    *  will return the approriate answer.
     *
     * \~German
+    *  Stellt eine Funktion für das LUFA dar, so dass eine Anfrage vom USB-Host
+    *  die gewünschte Antwort liefert.
     */
    uint16_t CALLBACK_USB_GetDescriptor(const uint16_t wValue,
                                        const uint16_t wIndex,

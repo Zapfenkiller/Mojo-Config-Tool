@@ -124,12 +124,12 @@ static FILE USBSerialStream;
 #define  CFG_SRC_USB               'u' /**< \~English Bitstream source is USB. \~German Der Datenstrom kommt vom USB. */
 #define  CFG_SRC_SPI               's' /**< \~English Bitstream source is FLASH. \~German Der Datenstrom kommt aus dem FLASH. */
 
-#define  APP_WAIT_FOR_PACKET_ID      0
-#define  APP_WAIT_FOR_PACKET_SIZE    1
-#define  APP_UCIF_SDR_WR             2
-#define  APP_UCIF_DDR_WR             3
-#define  APP_UCIF_SDR_RD             4
-#define  APP_UCIF_DDR_RD             5
+#define  APP_WAIT_FOR_PACKET_ID      0 /**< \~English Waits for a data packet. \~German Wartet auf ein Datenpaket. */
+#define  APP_WAIT_FOR_PACKET_SIZE    1 /**< \~English Waits for the packet size. \~German Wartet auf die Paketgröße. */
+#define  APP_UCIF_SDR_WR             2 /**< \~English Processes a Single Data Rate write access packet. \~German Verarbeitet ein Single Data Rate Schreibzugriff-Paket. */
+#define  APP_UCIF_DDR_WR             3 /**< \~English Processes a Double Data Rate write access packet. \~German Verarbeitet ein Double Data Rate Schreibzugriff-Paket. */
+#define  APP_UCIF_SDR_RD             4 /**< \~English Processes a Single Data Rate read access packet. \~German Verarbeitet ein Single Data Rate Lesezugriff-Paket. */
+#define  APP_UCIF_DDR_RD             5 /**< \~English Processes a Double Data Rate read access packet. \~German Verarbeitet ein Double Data Rate Lesezugriff-Paket. */
 
 
 const char PROGMEM greetStr[]    = "\r\n\n* Mojo OS *\r\n" \
@@ -177,7 +177,8 @@ int main(void)
    clock_prescale_set(clock_div_1);
 
    // Enable a weak pullup to unusable GPIOs. This prevents pins from floating,
-   // it has no risk if GNDed by layout. Schematic tells those are unconnected.
+   // it has no risk if GNDed by layout. Schematic tells those are unconnected
+   // so we should not get some "a few dozen more µA current draw" penalty.
    DDRE  &= ~(1 << PE6);
    PORTE |=  (1 << PE6);
    DDRD  &= ~(1 << PD7);

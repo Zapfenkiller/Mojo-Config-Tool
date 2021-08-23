@@ -216,14 +216,14 @@
     */
 
 
-   #define RELEASE_MINOR                  0
+   #define RELEASE_MINOR                  1
    /**<
     * \~English defines the MINOR device release level.
     * \~German  gibt die MINOR Freigabestufe des Produktes an.
     */
 
 
-   #define RELEASE_REVISION               1
+   #define RELEASE_REVISION               0
    /**<
     * \~English defines the device revision.
     * \~German  gibt den Überarbeitungsstand des Produktes an.

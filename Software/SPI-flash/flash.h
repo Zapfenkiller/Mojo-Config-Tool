@@ -28,6 +28,8 @@
  *         Semiconductor) support is incomplete. It needs retrofitting if there
  *         is any Mojo V3 with Adesto or other SPI-FLASHES around. This port
  *         from Arduino (.ino) to native avr-gcc omits non-Microchip artifacts.
+ *         As it turns out, the genuine Alchitry code does not fully support an
+ *         Adesto FLASH.
  *
  *  \~German
  *   @brief Stellt die Hardware-Abstraktions-Schicht dar.
@@ -41,6 +43,8 @@
  *         SPI-FLASH auftaucht, müssen die entsprechenden Codeteile nachgerüstet
  *         werden! Diese Portierung von Arduino (.ino) zum avr-gcc verwirft
  *         die nicht-Microchip Artefakte.
+ *         Wie eine tiefere Analyse aufzeigt, unterstützt bereits der
+ *         Originalcode von Alchitry nur Microchip-FLASH Speicher.
  */
 
 
