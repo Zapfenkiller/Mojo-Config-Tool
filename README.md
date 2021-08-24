@@ -54,21 +54,22 @@ can handle compressed bitstreams.
 ### UCIF_Demo.bit
 
 The UCIF demo is a more complex logic that needs a host control to send command
-packets to the Mojo - after the FPGA is configured with this logic.
+packets to the Mojo - after the FPGA is configured with this logic. It is here
+just to show how the communication to the FPGA logic is handled and how this
+logic could look like.
 
 The command packets control a set of registers inside the FPGA logic. Those
 registers in turn control brightness and flashing of all on-board LEDs. One
 simple packet sent once could unleash some impressive light show.
 
 The packet format is rather simple but powerful in terms of transfer speed.
-Every packet consists of a header word and up to 255 data words thereafter.
-Each word consists of two bytes. The structure is as follows:  
-`<ID> <Length> [<byte> <byte> <byte> <byte]`  
-The `<Length>` parameter covers the range from 0 up to 255 and counts words (not
-bytes).
+Every packet consists of a header word and up to 255 data words (510 data bytes)
+thereafter. Each word consists of two bytes. The structure is as follows:  
+`<ID> <Length> [<byte> <byte> <byte> <byte>] ...`  
 
 1. SDR-WR  
-   <ID> = 0x77 = 'w'  
+   `<ID>` = 0x77 = 'w'  
+   `<Length>` = count of data words  
    SDR stands for Single Data Rate and the WR for WRite. SDR here means that
    every word encodes a register address plus the data byte written to this
    register. It is perfect for random writes accessing one or more registers.
@@ -80,7 +81,8 @@ bytes).
    `'w' 2 0x00 0x03 0x02 0x77`  
    Which means write 0x03 into register 0x00 and 0x77 into register 0x02.
 2. DDR-WR  
-   <ID> = 0x57 = 'W'  
+   `<ID>` = 0x57 = 'W'  
+   `<Length>` = count of data words  
    DDR stands for Double Data Rate and the WR for WRite. DDR here means that
    every word encodes just two bytes of data. It is perfect for continous writes
    to a certain register (e. g. a write buffer entry) or to a file of subsequent
@@ -92,9 +94,10 @@ bytes).
    Example (writing 3 words = 6 bytes):  
    `'w' 3 0x03 0x77 0xA0 0x00 0xFF 0x42`
 3. SDR-RD  
-   <ID> = 0x72 = 'r'  
+   `<ID>` = 0x72 = 'r'  
+   `<Length>` = count of data bytes(!)  
    The SDR you already know about. The RD, you guessed it right, is for ReaD.
-   The packet content differ in that the `Length` counts bytes (!) and each byte
+   The packet content differs in that the `Length` counts bytes (!) and each byte
    send is interpreted as an register address to read one byte of data from.
    It is perfect when it comes to random sequence read outs.
    A complete set of up to 255 accesses can get done with one packet of 256
@@ -103,12 +106,13 @@ bytes).
    The `DDR` line is held at '0' when this kind of packet is received.  
    Example (reading 2 bytes):  
    'r' 2 0x03 0x04  
-   The Mojos responds to this packet by sending back a similar answer. The
+   The Mojo responds to this packet by sending back a similar answer. The
    payload carries the exact same amount of bytes from the requested address(es).
    Example (Mojo answer):  
    'r' 2 0x47 0xBD
 4. DDR-RD  
-   <ID> = 0x52 = 'R'  
+   `<ID>` = 0x52 = 'R'  
+   `<Length>` = count of data words  
    This is the Double Data Read request. This is perfect to catch a sequence of
    words as fast as possible. The exact source is determined by the UCIF logic
    implementation.
@@ -119,19 +123,21 @@ bytes).
    the `Length` field tells else. The `Length` field is maesuring words again.
    Example (reading 4 words):  
    'R' 2  
-   The Mojos responds to this packet by sending back its answer. The payload
+   The Mojo responds to this packet by sending back its answer. The payload
    carries the exact same amount of words from the requested address(es).
    Example (Mojo answer):  
    'R' 2 0x47 0xBD 0x59 0x88
 5. Reset FPGA Request  
-   <ID> = 0x23 = '#'  
-   <LENGTH> = 0x52 = 'R'
-   When the Mojo receives exact packet it leaves the UCIF mode and awaits the
-   user control at the command line.
+   `<ID>` = 0x23 = '#'  
+   `<LENGTH>` = 0x52 = 'R'
+   When the Mojo receives exact this packet it leaves the UCIF mode and awaits
+   the user control at the command line.
+
+Unknown packets get ignored.
 
 Now that it is obvious what to send to the Mojo and expect back from it the
 demonstration logic needs some documentation. A set of 32 registers controls the
-8 LEDS on the Mojo. Each LED takes 4 register addresses. Well, one bit per LED
+8 LEDs on the Mojo. Each LED takes 4 register addresses. Well, one bit per LED
 and just one register is enough, you might think. Yes, for just on/off control
 this yields true. But here the focus is on some fancy demo and so each LED gets
 its own control on brightness and some blinking. No timed control transfers are
@@ -192,7 +198,37 @@ Reading register address 32 returns the Mojo button status ('1' = pushed, '0' =
 released) at bit 0. Reading register 33 returns an internal counter running at a
 25600 Hz clock.
 
-The host application just sending out a SDR-WR packet containing 32 words will
-control all 8 LEDs instantly. DDR-packets do not make sense on the LEDs at all,
-DDR reading register 33 might give some insight on the timing achievable by the
-control packets.
+The host application will control all 8 LEDs instantly just by sending out a
+SDR-WR packet containing 32 words. DDR-packets do not make sense on the LEDs at
+all, DDR reading register 33 might give some insight on the timing achievable by
+the control packets.
+
+
+## Make the Thing
+
+You need to get an Alchitry Mojo (or one of its clones or close
+relatives). Check its schematic for differences to the original!
+The ATmega32U4 here runs off 3.3V and 8 MHz. With the current
+firmware an ATmega16U2 might also be supported but you need to
+apply the necessary changes yourself.
+In either case, an Arduino-compatible (AVR109) bootloader
+needs to be flashed there already. Maybe you consider using my
+adaptation of the genuine stuff:
+https://github.com/Zapfenkiller/Mojo-Bootloader
+
+You need to get a WinAVR-20100110 compiler suite to (re)compile
+the .hex and the avrdude for flashing via USB. ISP can be used
+also if the respective equipment is at your hands.
+
+The Arduino IDE you do **not** need for this project.
+
+
+## Credits, links and further readings
+
+The first credits go to Dean Camera for his really fine
+[LUFA](http://www.fourwalledcubicle.com/LUFA.php)
+project. See there for lots of examples on LUFA usage and How-Tos.
+
+Give a visit to the
+[Alchitry Mojo page](https://alchitry.com/products/mojo-v3?_pos=7&_sid=6d2c400a7&_ss=r).
+Check the "Documents" there and try the site search to find all information.
