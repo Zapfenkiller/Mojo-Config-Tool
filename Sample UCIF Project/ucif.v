@@ -28,8 +28,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
-// Dependencies:
-//
 // Additional Comments:
 //
 // Cycle Catalogue:
@@ -204,16 +202,6 @@
 // roughly 9846 kbit/s (1230 kByte/s) when running off 8 MHz. A sequence of 512
 // bytes could get written in one burst transfer from a buffer, taking
 // approximately 416 µs.
-//
-// Things scale linear with the AVR clock speed. The ucif, running off 50 MHz,
-// supports AVR up to 20 MHz. Thus the DDR peak throughput can get as high as
-// 24615 kbit/s. Since the AVR has to transfer the data between two terminal
-// points the effective peak throughput will get no more than just half of this
-// figure within a completed application - as a rule of thumb.
-//
-// By the way:
-// Topmost SPI speed is cut to half of the CPU clock frequency. With the
-// on-board ATmega running off 8 MHz the SPI throughput is 4000 kbit/s.
 //
 ////////////////////////////////////////////////////////////////////////////////
 

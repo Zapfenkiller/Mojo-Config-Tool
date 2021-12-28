@@ -48,7 +48,7 @@
 
    #define  UCIF_RW_SET       (UCIF_RW_PORT    |=  (1 << UCIF_RW_LINE))    /**< RW = '1' */
    #define  UCIF_RW_CLR       (UCIF_RW_PORT    &= ~(1 << UCIF_RW_LINE))    /**< RW = '0' */
-   #define  UCIF_RW_READ      (UCIF_RW_RET & (1 << UCIF_RW_LINE))          /**< \~English Reads UCIF RW state. \~German Liest den RW Status des UCIF. */
+// #define  UCIF_RW_READ      (UCIF_RW_RET & (1 << UCIF_RW_LINE))          /**< \~English Reads UCIF RW state. \~German Liest den RW Status des UCIF. */
 
    #define  UCIF_DDR_SET      (UCIF_DDR_PORT   |=  (1 << UCIF_DDR_LINE))   /**< RW = '1' */
    #define  UCIF_DDR_CLR      (UCIF_DDR_PORT   &= ~(1 << UCIF_DDR_LINE))   /**< RW = '0' */

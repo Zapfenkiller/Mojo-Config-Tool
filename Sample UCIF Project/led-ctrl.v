@@ -8,25 +8,8 @@
 // Module Name:    led_ctrl
 // Project Name:   Mojo OS
 // Target Devices: XC6SLX9-TQG144
-// Tool versions:  Xilinx ISE Webpack 14.7 (any supporting the Xc6SLX9)
-// Description:    Controls on board LEDs
-//
-// License:
-// --------
-// Copyright 2021  René Trapp (rene [dot] trapp (-at-) web [dot] de)
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// Tool versions:
+// Description:    Controls on board LEDs.
 //
 // Dependencies:
 //

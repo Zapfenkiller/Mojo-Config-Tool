@@ -106,7 +106,7 @@
    #define  UCIF_E_LINE       3     /**< \~English Port line of UCIF-E line \~German Portleitung für UCIF-E Signal */
 
    #define  UCIF_RW_PORT      PORTD /**< \~English Port register of UCIF-RW line \~German Portregister für UCIF-RW Signal */
-   #define  UCIF_RW_RET       PIND  /**< \~English Port register of UCIF-RW readback \~German Portregister für UCIF-RW Rücklesung */
+// #define  UCIF_RW_RET       PIND  /**< \~English Port register of UCIF-RW readback \~German Portregister für UCIF-RW Rücklesung */
    #define  UCIF_RW_DIR       DDRD  /**< \~English Port direction of UCIF-RW line \~German Richtungsregister für UCIF-RW Signal */
    #define  UCIF_RW_LINE      2     /**< \~English Port line of UCIF-RW line \~German Portleitung für UCIF-RW Signal */
 
@@ -115,7 +115,7 @@
    #define  UCIF_DDR_LINE     0     /**< \~English Port line of UCIF-DDR line \~German Portleitung für UCIF-DDR Signal */
 
    // Possible auxiliary ports for UCIF:
-   // PD5, PB0
+   // PD5
 
 
    // USB properties:
@@ -143,7 +143,7 @@
     */
 
 
-   #define MANUFACTURER_DESCR_STRING      L"Embedded Micro, Rene Trapp"
+   #define MANUFACTURER_DESCR_STRING      L"HW: Embedded Micro, SW: Rene Trapp"
    /**<
     * \~ Manufacturer Descriptor string.
     *

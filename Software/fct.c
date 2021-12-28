@@ -286,7 +286,7 @@ void applicationLoop(void)
                   UCIF_E_SET;
                   UCIF_DATA_PORT = RingBuffer_Remove(&inBuffer);
                   UCIF_E_CLR;
-                  ready--;
+                  ready -= 2;
                   size--;
                }
                if (size == 0)
